@@ -1,0 +1,5 @@
+/**
+ * Events feature module
+ */
+
+export {};
