@@ -1,20 +1,45 @@
 import { StatusBar } from 'expo-status-bar';
-import { Text, View } from 'react-native';
-import { PaperProvider } from 'react-native-paper';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { APP_NAME, APP_TAGLINE } from '@/constants';
+import { NavigationContainer } from '@react-navigation/native';
+import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
+import { RootNavigator } from '@/navigation/RootNavigator';
 
-export default function App() {
+function AppContent(): React.JSX.Element {
+  const { userId, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" />
+        <Text className="mt-4 text-slate-600">Loading...</Text>
+      </View>
+    );
+  }
+
+  return <RootNavigator isAuthenticated={!!userId} />;
+}
+
+export default function App(): React.JSX.Element {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <PaperProvider>
-        <View className="flex-1 items-center justify-center bg-white px-6">
-          <Text className="text-3xl font-bold text-slate-800">{APP_NAME}</Text>
-          <Text className="mt-2 text-center text-base text-slate-600">
-            {APP_TAGLINE}
-          </Text>
-          <StatusBar style="auto" />
-        </View>
+      <PaperProvider
+        theme={{
+          ...MD3LightTheme,
+          colors: {
+            ...MD3LightTheme.colors,
+            primary: '#FC4C02',
+            secondary: '#0EA5E9',
+          },
+        }}
+      >
+        <NavigationContainer>
+          <AuthProvider>
+            <AppContent />
+            <StatusBar style="auto" />
+          </AuthProvider>
+        </NavigationContainer>
       </PaperProvider>
     </GestureHandlerRootView>
   );

@@ -1,6 +1,11 @@
 /**
- * Service layer
- * API clients, Firebase, external integrations
+ * Service layer exports
  */
 
-export {};
+export * from './firebase';
+export * from './authService';
+export * from './userService';
+export * from './inviteService';
+export * from './eventService';
+export * from './conversationService';
+export * from './matchingService';

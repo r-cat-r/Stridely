@@ -2,5 +2,10 @@
  * Shared utility functions
  */
 
-// Placeholder for shared utilities
-export {};
+export { timestampToMs } from './firestore';
+export { haversineKm } from './geo';
+export {
+  pickAndEncodeProfileImage,
+  isDataUri,
+  type ProfileImageDataUri,
+} from './profileImage';
