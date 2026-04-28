@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: any authenticated user can read (needed for matching/discovery)
+    // Only the owner can write their own profile
+    // Exception: allow creating docs with any ID (needed for seed data in dev)
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null;
+    }
+
+    // Events: any authenticated user can read/create; participants can update
+    match /events/{eventId} {
+      allow read, create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Event join requests
+    match /eventRequests/{requestId} {
+      allow read, create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Buddy invites
+    match /buddyInvites/{inviteId} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if request.auth != null;
+    }
+
+    // Conversations: authenticated users
+    match /conversations/{convoId} {
+      allow read, create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Messages: authenticated users
+    match /messages/{messageId} {
+      allow read, create: if request.auth != null;
+    }
+  }
+}

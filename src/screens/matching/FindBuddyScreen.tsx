@@ -1,12 +1,15 @@
 /**
  * Find Buddy - swipe-based athlete discovery
+ *
+ * Filters out users who already have pending/accepted invites
+ * to prevent them from showing up again after swiping.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { useAuth } from '@/features/auth/AuthContext';
 import { discoverAthletes } from '@/services/matchingService';
-import { sendInvite } from '@/services/inviteService';
+import { sendInvite, getSentInvites } from '@/services/inviteService';
 import { SwipeableCardStack } from '@/components/SwipeableCardStack';
 import { ErrorView } from '@/components/ErrorView';
 import type { DiscoveryMatch } from '@/types';
@@ -21,19 +24,44 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [sendingInvite, setSendingInvite] = useState(false);
+
+  // Track invited user IDs to filter them from results
+  const invitedIdsRef = useRef<Set<string>>(new Set());
 
   const radius = profile?.searchRadiusKm ?? 5;
+  const coordLat = profile?.coordinates?.latitude;
+  const coordLng = profile?.coordinates?.longitude;
+  const activeSportId = profile?.activeSportId;
 
   const loadMatches = useCallback(async (): Promise<void> => {
-    if (!userId || !profile?.activeSportId || !profile?.coordinates) {
+    if (!userId || !activeSportId || !coordLat || !coordLng) {
       setMatches([]);
       setLoading(false);
       return;
     }
     try {
-      const result = await discoverAthletes(userId, radius);
-      setMatches(result);
+      // Fetch matches and sent invites in parallel
+      const [result, sentInvites] = await Promise.all([
+        discoverAthletes(userId, radius),
+        getSentInvites(userId),
+      ]);
+
+      // Build set of users we've already invited (pending or accepted)
+      const alreadyInvited = new Set(
+        sentInvites
+          .filter((inv) => inv.status === 'pending' || inv.status === 'accepted')
+          .map((inv) => inv.toUserId)
+      );
+
+      // Merge with locally-tracked invites from this session
+      invitedIdsRef.current.forEach((id) => alreadyInvited.add(id));
+
+      // Filter out already-invited users and self
+      const filtered = result.filter(
+        (m) => !alreadyInvited.has(m.user.id) && m.user.id !== userId
+      );
+
+      setMatches(filtered);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load matches');
@@ -41,33 +69,24 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userId, profile?.activeSportId, profile?.coordinates, radius]);
+  }, [userId, activeSportId, coordLat, coordLng, radius]);
 
   useEffect(() => {
-    if (__DEV__) {
-      console.log('[FIND_BUDDY] Dependencies changed:', {
-        hasUserId: !!userId,
-        hasSportId: !!profile?.activeSportId,
-        hasCoordinates: !!profile?.coordinates,
-      });
-    }
     loadMatches();
   }, [loadMatches]);
 
   const handleInvite = useCallback(
     async (match: DiscoveryMatch): Promise<void> => {
-      if (!userId || !profile?.activeSportId || sendingInvite) return;
-      setSendingInvite(true);
+      if (!userId || !activeSportId) return;
       try {
-        await sendInvite(userId, match.user.id, profile.activeSportId);
+        await sendInvite(userId, match.user.id, activeSportId);
+        invitedIdsRef.current.add(match.user.id);
         setMatches((prev) => prev.filter((m) => m.user.id !== match.user.id));
-      } catch {
-        // Keep card on error - user can retry
-      } finally {
-        setSendingInvite(false);
+      } catch (err) {
+        console.error('[FIND_BUDDY] Invite error:', err);
       }
     },
-    [userId, profile?.activeSportId, sendingInvite]
+    [userId, activeSportId]
   );
 
   const handleSkip = useCallback((match: DiscoveryMatch): void => {

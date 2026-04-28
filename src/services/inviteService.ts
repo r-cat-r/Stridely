@@ -9,6 +9,7 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  deleteDoc,
   query,
   where,
   serverTimestamp,
@@ -94,4 +95,8 @@ export async function getSentInvites(userId: string): Promise<BuddyInvite[]> {
 export async function getInvite(inviteId: string): Promise<BuddyInvite | null> {
   const snap = await getDoc(inviteDoc(inviteId));
   return snap.exists() ? toInvite(snap.id, snap.data() as Record<string, unknown>) : null;
+}
+
+export async function deleteInvite(inviteId: string): Promise<void> {
+  await deleteDoc(inviteDoc(inviteId));
 }

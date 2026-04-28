@@ -1,11 +1,14 @@
 /**
- * Discovery card - stacked card for swipe UI
+ * Discovery card — premium stacked card for swipe UI
+ *
+ * Shows athlete photo/avatar, name, sport, stats, and compatibility badge.
  */
 
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { DiscoveryMatch } from '@/types';
-import { colors, spacing, borderRadius } from '@/constants/theme';
+import { colors, spacing, borderRadius, shadows, typography } from '@/constants/theme';
 
 interface DiscoveryCardProps {
   match: DiscoveryMatch;
@@ -17,37 +20,68 @@ export function DiscoveryCard({ match }: DiscoveryCardProps): React.JSX.Element 
 
   return (
     <View style={styles.card}>
+      {/* Image / Avatar */}
       <View style={styles.imageContainer}>
         {user.photoURL ? (
           <Image source={{ uri: user.photoURL }} style={styles.image} resizeMode="cover" />
         ) : (
           <View style={[styles.image, styles.placeholder]}>
             <Text style={styles.placeholderText}>
-              {user.displayName?.[0] ?? user.email[0] ?? '?'}
+              {(user.displayName?.[0] ?? user.email[0] ?? '?').toUpperCase()}
             </Text>
           </View>
         )}
+
+        {/* Gradient overlay for text readability */}
+        <View style={styles.imageOverlay} />
+
+        {/* Compatibility badge */}
         <View style={styles.badge}>
+          <MaterialCommunityIcons name="heart" size={12} color="#fff" />
           <Text style={styles.badgeText}>{compatibility}%</Text>
         </View>
+
+        {/* Distance pill */}
+        <View style={styles.distancePill}>
+          <MaterialCommunityIcons name="map-marker" size={12} color={colors.textOnPrimary} />
+          <Text style={styles.distanceText}>{distanceKm} km</Text>
+        </View>
       </View>
+
+      {/* Content */}
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={1}>
           {user.displayName || user.email}
         </Text>
+
         {activeSport && (
-          <Text style={styles.sport}>{activeSport.sport}</Text>
+          <View style={styles.sportRow}>
+            <MaterialCommunityIcons
+              name={
+                activeSport.sport === 'Cycling'
+                  ? 'bike'
+                  : activeSport.sport === 'Swimming'
+                    ? 'swim'
+                    : 'run'
+              }
+              size={16}
+              color={colors.primary}
+            />
+            <Text style={styles.sportName}>{activeSport.sport}</Text>
+          </View>
         )}
-        <View style={styles.stats}>
-          <Text style={styles.stat}>{activeSport?.distance ?? '-'} km</Text>
-          <Text style={styles.dot}>•</Text>
-          <Text style={styles.stat}>{activeSport?.pace ?? '-'}</Text>
-          <Text style={styles.dot}>•</Text>
-          <Text style={styles.stat}>{distanceKm} km away</Text>
-        </View>
+
         {activeSport && (
-          <Text style={styles.skill}>{activeSport.skillLevel}</Text>
+          <View style={styles.statsRow}>
+            <StatChip
+              icon="map-marker-distance"
+              label={`${activeSport.distance}km`}
+            />
+            <StatChip icon="speedometer" label={activeSport.pace} />
+            <StatChip icon="medal-outline" label={activeSport.skillLevel} />
+          </View>
         )}
+
         {user.bio ? (
           <Text style={styles.bio} numberOfLines={2}>
             {user.bio}
@@ -58,16 +92,31 @@ export function DiscoveryCard({ match }: DiscoveryCardProps): React.JSX.Element 
   );
 }
 
+function StatChip({
+  icon,
+  label,
+}: {
+  icon: string;
+  label: string;
+}): React.JSX.Element {
+  return (
+    <View style={styles.statChip}>
+      <MaterialCommunityIcons
+        name={icon as any}
+        size={13}
+        color={colors.textSecondary}
+      />
+      <Text style={styles.statChipText}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 8,
+    ...shadows.lg,
     width: '100%',
   },
   imageContainer: {
@@ -79,66 +128,98 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   placeholder: {
-    backgroundColor: colors.border,
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   placeholderText: {
-    fontSize: 48,
-    color: colors.textMuted,
+    fontSize: 56,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '800',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '40%',
+    backgroundColor: 'transparent',
   },
   badge: {
     position: 'absolute',
     top: spacing.md,
     right: spacing.md,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.full,
+    ...shadows.sm,
   },
   badgeText: {
-    color: colors.surface,
-    fontSize: 14,
+    color: colors.textOnPrimary,
+    fontSize: 13,
     fontWeight: '700',
+  },
+  distancePill: {
+    position: 'absolute',
+    bottom: spacing.md,
+    left: spacing.md,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs + 1,
+    borderRadius: borderRadius.full,
+  },
+  distanceText: {
+    color: colors.textOnPrimary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   content: {
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   name: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...typography.h1,
     color: colors.text,
     marginBottom: spacing.xs,
   },
-  sport: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-    marginBottom: spacing.sm,
-  },
-  stats: {
+  sportRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    gap: 6,
+    marginBottom: spacing.md,
   },
-  stat: {
-    fontSize: 14,
+  sportName: {
+    ...typography.label,
+    color: colors.primary,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  statChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: borderRadius.full,
+  },
+  statChipText: {
+    ...typography.caption,
     color: colors.textSecondary,
-  },
-  dot: {
-    marginHorizontal: spacing.sm,
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  skill: {
-    fontSize: 12,
-    color: colors.textMuted,
-    textTransform: 'capitalize',
-    marginBottom: spacing.sm,
+    fontWeight: '500',
   },
   bio: {
-    fontSize: 14,
+    ...typography.bodySmall,
     color: colors.textSecondary,
-    lineHeight: 20,
   },
 });

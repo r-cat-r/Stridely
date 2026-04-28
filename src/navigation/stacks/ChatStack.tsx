@@ -9,7 +9,7 @@ import { ChatScreen } from '@/screens/chat/ChatScreen';
 
 export type ChatStackParamList = {
   ConversationsList: undefined;
-  Chat: { conversationId: string };
+  ChatDetail: { conversationId: string };
 };
 
 const Stack = createNativeStackNavigator<ChatStackParamList>();
@@ -23,7 +23,7 @@ export function ChatStack(): React.JSX.Element {
         options={{ title: 'Conversations' }}
       />
       <Stack.Screen
-        name="Chat"
+        name="ChatDetail"
         component={ChatScreen}
         options={{ title: 'Chat' }}
       />

@@ -9,7 +9,7 @@ import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
 import { SportsProfilesScreen } from '@/screens/profile/SportsProfilesScreen';
 
 export type ProfileStackParamList = {
-  Profile: undefined;
+  ProfileHome: undefined;
   EditProfile: undefined;
   SportsProfiles: undefined;
 };
@@ -20,7 +20,7 @@ export function ProfileStack(): React.JSX.Element {
   return (
     <Stack.Navigator screenOptions={{ headerShown: true }}>
       <Stack.Screen
-        name="Profile"
+        name="ProfileHome"
         component={ProfileScreen}
         options={{ title: 'Profile' }}
       />

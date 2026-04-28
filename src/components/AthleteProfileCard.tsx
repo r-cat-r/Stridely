@@ -1,88 +1,112 @@
 /**
- * Athlete-style profile card
+ * Athlete-style profile card — premium design
+ *
+ * Used on Profile, UserDetail, and anywhere a full profile display is needed.
  */
 
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { UserProfile } from '@/types';
-import { colors, spacing, borderRadius } from '@/constants/theme';
+import { colors, spacing, borderRadius, shadows, typography } from '@/constants/theme';
 
 interface AthleteProfileCardProps {
   profile: UserProfile;
-  showActions?: boolean;
 }
 
-export function AthleteProfileCard({ profile, showActions = false }: AthleteProfileCardProps): React.JSX.Element {
+export function AthleteProfileCard({ profile }: AthleteProfileCardProps): React.JSX.Element {
   const activeSport = profile.sportsProfiles.find((p) => p.id === profile.activeSportId);
   const allSports = profile.sportsProfiles;
 
   return (
     <View style={styles.container}>
-      <View style={styles.hero}>
-        <View style={styles.avatarContainer}>
-          {profile.photoURL ? (
-            <Image source={{ uri: profile.photoURL }} style={styles.avatar} resizeMode="cover" />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={styles.avatarText}>
-                {profile.displayName?.[0] ?? profile.email[0] ?? '?'}
-              </Text>
-            </View>
-          )}
+      {/* Hero section with gradient-like background */}
+      <View style={styles.heroBg}>
+        <View style={styles.hero}>
+          <View style={styles.avatarRing}>
+            {profile.photoURL ? (
+              <Image source={{ uri: profile.photoURL }} style={styles.avatar} resizeMode="cover" />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarText}>
+                  {(profile.displayName?.[0] ?? profile.email[0] ?? '?').toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.name}>{profile.displayName || profile.email}</Text>
+          {profile.bio ? (
+            <Text style={styles.bio} numberOfLines={3}>
+              {profile.bio}
+            </Text>
+          ) : null}
         </View>
-        <Text style={styles.name}>{profile.displayName || profile.email}</Text>
-        {profile.bio ? (
-          <Text style={styles.bio} numberOfLines={3}>
-            {profile.bio}
-          </Text>
-        ) : null}
       </View>
 
+      {/* Active sport section */}
       {activeSport && (
-        <View style={styles.activeSport}>
-          <Text style={styles.sectionLabel}>Active sport</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>ACTIVE SPORT</Text>
           <View style={styles.sportCard}>
             <View style={styles.sportHeader}>
-              <MaterialCommunityIcons
-                name={
-                  (activeSport.sport === 'Cycling'
-                    ? 'bike'
-                    : activeSport.sport === 'Swimming'
-                      ? 'swim'
-                      : 'run') as 'run'
-                }
-                size={20}
-                color={colors.primary}
-              />
+              <View style={styles.sportIconWrap}>
+                <MaterialCommunityIcons
+                  name={
+                    (activeSport.sport === 'Cycling'
+                      ? 'bike'
+                      : activeSport.sport === 'Swimming'
+                        ? 'swim'
+                        : 'run') as 'run'
+                  }
+                  size={22}
+                  color={colors.textOnPrimary}
+                />
+              </View>
               <Text style={styles.sportName}>{activeSport.sport}</Text>
             </View>
             <View style={styles.stats}>
-              <StatPill icon="map-marker" label={`${activeSport.distance} km`} />
+              <StatPill icon="map-marker-distance" label={`${activeSport.distance} km`} />
               <StatPill icon="speedometer" label={activeSport.pace} />
-              <StatPill icon="medal" label={activeSport.skillLevel} />
+              <StatPill icon="medal-outline" label={activeSport.skillLevel} />
               <StatPill icon="clock-outline" label={activeSport.preferredTime} />
             </View>
           </View>
         </View>
       )}
 
+      {/* Other sports */}
       {allSports.length > 1 && (
-        <View style={styles.allSports}>
-          <Text style={styles.sectionLabel}>All sports</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>OTHER SPORTS</Text>
           {allSports
             .filter((s) => s.id !== profile.activeSportId)
             .map((s) => (
               <View key={s.id} style={styles.sportRow}>
-                <Text style={styles.sportRowText}>
-                  {s.sport} • {s.distance}km • {s.pace}
-                </Text>
-                <Text style={styles.sportRowSkill}>{s.skillLevel}</Text>
+                <View style={styles.sportRowLeft}>
+                  <MaterialCommunityIcons
+                    name={
+                      s.sport === 'Cycling'
+                        ? 'bike'
+                        : s.sport === 'Swimming'
+                          ? 'swim'
+                          : 'run'
+                    }
+                    size={16}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.sportRowText}>
+                    {s.sport} • {s.distance}km • {s.pace}
+                  </Text>
+                </View>
+                <View style={styles.skillBadge}>
+                  <Text style={styles.skillBadgeText}>{s.skillLevel}</Text>
+                </View>
               </View>
             ))}
         </View>
       )}
 
+      {/* Meta info */}
       <View style={styles.meta}>
         <View style={styles.metaItem}>
           <MaterialCommunityIcons name="map-marker-radius" size={16} color={colors.textMuted} />
@@ -90,6 +114,14 @@ export function AthleteProfileCard({ profile, showActions = false }: AthleteProf
             Search radius: {profile.searchRadiusKm} km
           </Text>
         </View>
+        {profile.coordinates && (
+          <View style={styles.metaItem}>
+            <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.accent} />
+            <Text style={[styles.metaText, { color: colors.accent }]}>
+              Location active
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -99,12 +131,12 @@ function StatPill({
   icon,
   label,
 }: {
-  icon: 'map-marker' | 'speedometer' | 'medal' | 'clock-outline';
+  icon: string;
   label: string;
 }): React.JSX.Element {
   return (
     <View style={styles.statPill}>
-      <MaterialCommunityIcons name={icon} size={14} color={colors.textSecondary} />
+      <MaterialCommunityIcons name={icon as any} size={14} color={colors.textSecondary} />
       <Text style={styles.statPillText}>{label}</Text>
     </View>
   );
@@ -113,21 +145,25 @@ function StatPill({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
     margin: spacing.lg,
+    ...shadows.md,
+  },
+  heroBg: {
+    backgroundColor: colors.primary,
+    paddingBottom: spacing.xl,
   },
   hero: {
     alignItems: 'center',
-    padding: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing['3xl'],
+    paddingHorizontal: spacing.xl,
   },
-  avatarContainer: {
+  avatarRing: {
+    padding: 3,
+    borderRadius: 58,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.4)',
     marginBottom: spacing.md,
   },
   avatar: {
@@ -136,53 +172,57 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 36,
-    color: colors.textMuted,
+    fontSize: 40,
+    color: colors.textOnPrimary,
+    fontWeight: '800',
   },
   name: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
+    ...typography.h1,
+    color: colors.textOnPrimary,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   bio: {
-    fontSize: 15,
-    color: colors.textSecondary,
+    ...typography.body,
+    color: 'rgba(255,255,255,0.85)',
     textAlign: 'center',
     lineHeight: 22,
   },
-  activeSport: {
+  section: {
     padding: spacing.lg,
-    paddingTop: 0,
+    paddingBottom: spacing.sm,
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.labelSmall,
     color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   sportCard: {
-    backgroundColor: colors.neutral,
+    backgroundColor: colors.background,
     borderRadius: borderRadius.md,
     padding: spacing.lg,
   },
   sportHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     marginBottom: spacing.md,
   },
+  sportIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sportName: {
-    fontSize: 18,
-    fontWeight: '600',
+    ...typography.h2,
     color: colors.primary,
   },
   stats: {
@@ -196,37 +236,47 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.full,
+    ...shadows.sm,
   },
   statPillText: {
-    fontSize: 13,
+    ...typography.caption,
     color: colors.textSecondary,
-  },
-  allSports: {
-    padding: spacing.lg,
-    paddingTop: 0,
+    fontWeight: '500',
   },
   sportRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight,
+  },
+  sportRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sportRowText: {
-    fontSize: 14,
+    ...typography.bodySmall,
     color: colors.text,
   },
-  sportRowSkill: {
-    fontSize: 12,
+  skillBadge: {
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  skillBadgeText: {
+    ...typography.caption,
     color: colors.textMuted,
     textTransform: 'capitalize',
   },
   meta: {
     padding: spacing.lg,
     paddingTop: spacing.md,
+    gap: spacing.sm,
   },
   metaItem: {
     flexDirection: 'row',
@@ -234,7 +284,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   metaText: {
-    fontSize: 13,
+    ...typography.caption,
     color: colors.textMuted,
   },
 });

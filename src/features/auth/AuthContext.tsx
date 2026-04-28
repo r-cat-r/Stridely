@@ -1,5 +1,9 @@
 /**
  * Auth context and provider
+ *
+ * Provides userId, profile, and auth actions to the entire app.
+ * refreshProfile does a SILENT background refresh (no loading spinner)
+ * to avoid cascading re-renders across all screens.
  */
 
 import React, {
@@ -8,6 +12,7 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from 'react';
 import { subscribeToAuthState, signOut as authSignOut } from '@/services/authService';
@@ -36,11 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
     error: null,
   });
 
+  // Ref to avoid stale closure in refreshProfile
+  const userIdRef = useRef<string | null>(null);
+  userIdRef.current = state.userId;
+
   const loadProfile = useCallback(async (uid: string): Promise<UserProfile | null> => {
-    if (__DEV__) console.log('[AUTH] Loading profile for:', uid);
     let profile = await getUserProfile(uid);
     if (!profile) {
-      if (__DEV__) console.log('[AUTH] No profile found, creating new user profile');
       const { auth } = await import('@/services/authService');
       const authUser = auth().currentUser;
       if (authUser) {
@@ -50,32 +57,30 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
           photoURL: authUser.photoURL ?? null,
         });
         profile = await getUserProfile(uid);
-        if (__DEV__) console.log('[AUTH] Profile created:', profile?.id);
       }
     }
     return profile ?? null;
   }, []);
 
+  /**
+   * Silent refresh — does NOT set loading: true.
+   * This prevents the entire app from unmounting/remounting screens
+   * just because the profile is being re-fetched.
+   */
   const refreshProfile = useCallback(async (): Promise<void> => {
-    if (!state.userId) {
-      if (__DEV__) console.log('[AUTH] refreshProfile: no userId');
-      return;
-    }
-    if (__DEV__) console.log('[AUTH] Refreshing profile for:', state.userId);
-    setState((s) => ({ ...s, loading: true, error: null }));
+    const uid = userIdRef.current;
+    if (!uid) return;
     try {
-      const profile = await loadProfile(state.userId);
-      setState((s) => ({ ...s, profile, loading: false, error: null }));
-      if (__DEV__) console.log('[AUTH] Profile refreshed');
+      const profile = await loadProfile(uid);
+      setState((s) => ({ ...s, profile, error: null }));
     } catch (err) {
-      if (__DEV__) console.error('[AUTH] Profile refresh error:', err);
+      console.error('[AUTH] Profile refresh error:', err);
       setState((s) => ({
         ...s,
-        loading: false,
         error: err instanceof Error ? err : new Error(String(err)),
       }));
     }
-  }, [state.userId, loadProfile]);
+  }, [loadProfile]);
 
   const signOut = useCallback(async (): Promise<void> => {
     await authSignOut();
@@ -83,9 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
   }, []);
 
   useEffect(() => {
-    if (__DEV__) console.log('[AUTH] Setting up auth state listener');
     const unsub = subscribeToAuthState(async (user) => {
-      if (__DEV__) console.log('[AUTH] Auth state changed:', user ? `uid=${user.uid}` : 'logged out');
       if (!user) {
         setState({ userId: null, profile: null, loading: false, error: null });
         return;
@@ -95,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
         const profile = await loadProfile(user.uid);
         setState({ userId: user.uid, profile, loading: false, error: null });
       } catch (err) {
-        if (__DEV__) console.error('[AUTH] Error loading profile:', err);
+        console.error('[AUTH] Error loading profile:', err);
         setState({
           userId: user.uid,
           profile: null,

@@ -1,5 +1,8 @@
 /**
  * Swipeable card stack - gesture-based discovery
+ *
+ * Only the top card (index 0) is interactive with gestures and action buttons.
+ * Cards behind are rendered as a visual stack with pointerEvents disabled.
  */
 
 import React, { useCallback } from 'react';
@@ -32,63 +35,71 @@ export function SwipeableCardStack({
   onSkip,
   onViewProfile,
 }: SwipeableCardStackProps): React.JSX.Element {
-  const handleInvite = useCallback(
-    (match: DiscoveryMatch) => onInvite(match),
-    [onInvite]
-  );
-  const handleSkip = useCallback(
-    (match: DiscoveryMatch) => onSkip(match),
-    [onSkip]
-  );
-
+  // Show at most 3 cards in the visual stack
   const visibleCards = matches.slice(0, 3);
 
   return (
     <View style={styles.container}>
-      {visibleCards.map((match, index) => (
-        <SwipeableCard
-          key={match.user.id}
-          match={match}
-          index={index}
-          totalVisible={visibleCards.length}
-          onSwipeRight={() => handleInvite(match)}
-          onSwipeLeft={() => handleSkip(match)}
-          onViewProfile={() => onViewProfile(match)}
-        />
-      ))}
+      {/* Render in reverse so the first card (index 0) is on top */}
+      {visibleCards
+        .slice()
+        .reverse()
+        .map((match, reverseIndex) => {
+          const index = visibleCards.length - 1 - reverseIndex;
+          const isTopCard = index === 0;
+
+          if (isTopCard) {
+            return (
+              <TopSwipeableCard
+                key={match.user.id}
+                match={match}
+                onSwipeRight={() => onInvite(match)}
+                onSwipeLeft={() => onSkip(match)}
+                onViewProfile={() => onViewProfile(match)}
+              />
+            );
+          }
+
+          return (
+            <View
+              key={match.user.id}
+              pointerEvents="none"
+              style={[
+                styles.cardWrapper,
+                {
+                  zIndex: visibleCards.length - index,
+                  top: index * 8,
+                  transform: [{ scale: 1 - index * 0.05 }],
+                },
+              ]}
+            >
+              <View style={styles.card}>
+                <DiscoveryCard match={match} />
+              </View>
+            </View>
+          );
+        })}
     </View>
   );
 }
 
-interface SwipeableCardProps {
-  match: DiscoveryMatch;
-  index: number;
-  totalVisible: number;
-  onSwipeRight: () => void;
-  onSwipeLeft: () => void;
-  onViewProfile: () => void;
-}
-
-function SwipeableCard({
+/** The top card with gesture handling and action buttons */
+function TopSwipeableCard({
   match,
-  index,
-  totalVisible,
   onSwipeRight,
   onSwipeLeft,
   onViewProfile,
-}: SwipeableCardProps): React.JSX.Element {
+}: {
+  match: DiscoveryMatch;
+  onSwipeRight: () => void;
+  onSwipeLeft: () => void;
+  onViewProfile: () => void;
+}): React.JSX.Element {
   const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1 - index * 0.05);
   const rotateZ = useSharedValue(0);
 
-  const triggerInvite = useCallback(() => {
-    onSwipeRight();
-  }, [onSwipeRight]);
-
-  const triggerSkip = useCallback(() => {
-    onSwipeLeft();
-  }, [onSwipeLeft]);
+  const triggerInvite = useCallback(() => onSwipeRight(), [onSwipeRight]);
+  const triggerSkip = useCallback(() => onSwipeLeft(), [onSwipeLeft]);
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
@@ -117,79 +128,54 @@ function SwipeableCard({
     transform: [
       { translateX: translateX.value },
       { rotate: `${rotateZ.value}rad` },
-      { scale: scale.value },
     ],
   }));
 
   return (
     <GestureDetector gesture={panGesture}>
-      <Animated.View
-        style={[
-          styles.cardWrapper,
-          {
-            zIndex: totalVisible - index,
-            top: index * 8,
-          },
-        ]}
-      >
+      <Animated.View style={[styles.cardWrapper, { zIndex: 100 }]}>
         <Animated.View style={[styles.card, animatedStyle]}>
           <DiscoveryCard match={match} />
-          <CardActions
-            onInvite={() => {
-              translateX.value = withSpring(SCREEN_WIDTH * 1.2, SPRING_CONFIG, () => {
-                runOnJS(triggerInvite)();
-              });
-            }}
-            onSkip={() => {
-              translateX.value = withSpring(-SCREEN_WIDTH * 1.2, SPRING_CONFIG, () => {
-                runOnJS(triggerSkip)();
-              });
-            }}
-            onViewProfile={onViewProfile}
-          />
+          <View style={styles.actions}>
+            <Button
+              mode="outlined"
+              onPress={() => {
+                translateX.value = withSpring(-SCREEN_WIDTH * 1.2, SPRING_CONFIG, () => {
+                  runOnJS(triggerSkip)();
+                });
+              }}
+              icon="close"
+              style={styles.skipBtn}
+              labelStyle={styles.actionLabel}
+            >
+              Skip
+            </Button>
+            <Button
+              mode="contained"
+              onPress={onViewProfile}
+              icon="account"
+              style={styles.profileBtn}
+              labelStyle={styles.actionLabel}
+            >
+              Profile
+            </Button>
+            <Button
+              mode="contained"
+              onPress={() => {
+                translateX.value = withSpring(SCREEN_WIDTH * 1.2, SPRING_CONFIG, () => {
+                  runOnJS(triggerInvite)();
+                });
+              }}
+              icon="send"
+              style={styles.inviteBtn}
+              labelStyle={styles.actionLabel}
+            >
+              Invite
+            </Button>
+          </View>
         </Animated.View>
       </Animated.View>
     </GestureDetector>
-  );
-}
-
-interface CardActionsProps {
-  onInvite: () => void;
-  onSkip: () => void;
-  onViewProfile: () => void;
-}
-
-function CardActions({ onInvite, onSkip, onViewProfile }: CardActionsProps): React.JSX.Element {
-  return (
-    <View style={styles.actions}>
-      <Button
-        mode="outlined"
-        onPress={onSkip}
-        icon="close"
-        style={styles.skipBtn}
-        labelStyle={styles.skipLabel}
-      >
-        Skip
-      </Button>
-      <Button
-        mode="contained"
-        onPress={onViewProfile}
-        icon="account"
-        style={styles.profileBtn}
-        labelStyle={styles.profileLabel}
-      >
-        View Profile
-      </Button>
-      <Button
-        mode="contained"
-        onPress={onInvite}
-        icon="send"
-        style={styles.inviteBtn}
-        labelStyle={styles.inviteLabel}
-      >
-        Invite
-      </Button>
-    </View>
   );
 }
 
@@ -220,26 +206,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
+    gap: 10,
+    paddingHorizontal: 12,
     paddingVertical: 12,
   },
   skipBtn: {
     borderColor: '#94A3B8',
   },
-  skipLabel: {
-    fontSize: 14,
-  },
   profileBtn: {
     backgroundColor: '#64748B',
-  },
-  profileLabel: {
-    fontSize: 14,
   },
   inviteBtn: {
     backgroundColor: '#22C55E',
   },
-  inviteLabel: {
-    fontSize: 14,
+  actionLabel: {
+    fontSize: 13,
   },
 });

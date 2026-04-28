@@ -174,7 +174,7 @@ export function EventDetailScreen({ route, navigation }: Props): React.JSX.Eleme
               const tabNav = navigation.getParent();
               if (tabNav) {
                 (tabNav as { navigate: (name: string, params?: object) => void }).navigate('Chat', {
-                  screen: 'Chat',
+                  screen: 'ChatDetail',
                   params: { conversationId: event.conversationId },
                 });
               }

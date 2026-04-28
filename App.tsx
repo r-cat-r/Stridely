@@ -6,33 +6,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 import { RootNavigator } from '@/navigation/RootNavigator';
 
-// DEBUG: Confirm bundle execution
-console.log('[APP ENTRY] Bundle loaded, executing App.tsx');
-
-// @ts-ignore
-const isDev = __DEV__;
-
 function AppContent(): React.JSX.Element {
-  console.log('[APP] AppContent rendering');
   const { userId, loading, error } = useAuth();
-  console.log('[APP] Auth state:', { userId, loading, error: error?.message });
-
-  if (isDev && (loading || error)) {
-    console.log('[APP] Auth state:', { loading, error: error?.message, userId });
-  }
-
-  // TEMP: Verify Firebase exports
-  if (isDev) {
-    try {
-      const { getFirebaseApp, auth, firestore } = require('@/services/firebase');
-      const app = getFirebaseApp();
-      console.log('[APP] Firebase app initialized:', !!app);
-      console.log('[APP] Auth instance:', !!auth());
-      console.log('[APP] Firestore instance:', !!firestore());
-    } catch (e) {
-      console.error('[APP] Firebase init error:', e);
-    }
-  }
 
   if (error) {
     return (

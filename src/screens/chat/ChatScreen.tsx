@@ -19,7 +19,7 @@ import { useAuth } from '@/features/auth/AuthContext';
 import type { Message } from '@/types';
 import type { ChatStackParamList } from '@/navigation/stacks/ChatStack';
 
-type Props = NativeStackScreenProps<ChatStackParamList, 'Chat'>;
+type Props = NativeStackScreenProps<ChatStackParamList, 'ChatDetail'>;
 
 export function ChatScreen({ route }: Props): React.JSX.Element {
   const { conversationId } = route.params;

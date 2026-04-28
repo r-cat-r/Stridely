@@ -29,16 +29,10 @@ function fromFirestore(data: Record<string, unknown>): UserProfile {
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  if (__DEV__) console.log('[USER_SERVICE] Getting profile:', userId);
   try {
     const snap = await getDoc(userDoc(userId));
-    if (!snap.exists()) {
-      if (__DEV__) console.log('[USER_SERVICE] Profile not found:', userId);
-      return null;
-    }
-    const profile = fromFirestore(snap.data() as Record<string, unknown>);
-    if (__DEV__) console.log('[USER_SERVICE] Profile loaded:', { id: profile.id, sports: profile.sportsProfiles.length });
-    return profile;
+    if (!snap.exists()) return null;
+    return fromFirestore(snap.data() as Record<string, unknown>);
   } catch (err) {
     console.error('[USER_SERVICE] Error getting profile:', err);
     throw err;

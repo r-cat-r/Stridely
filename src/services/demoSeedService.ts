@@ -8,6 +8,7 @@ import {
   setDoc,
   addDoc,
   getDocs,
+  deleteDoc,
   query,
   where,
   serverTimestamp,
@@ -15,7 +16,8 @@ import {
 import { firestore } from './firebase';
 import type { UserProfile, GeoCoordinates } from '@/types';
 
-const __DEV__ = process.env.NODE_ENV !== 'production';
+// @ts-ignore - __DEV__ is a Metro global
+declare const __DEV__: boolean;
 
 function jitterCoord(base: number, kmOffset: number): number {
   const degPerKm = 1 / 111;
@@ -40,7 +42,12 @@ export async function seedDemoData(
   userCoords: GeoCoordinates,
   userActiveSport?: string
 ): Promise<void> {
-  if (!__DEV__) return;
+  console.log('[SEED] seedDemoData called, __DEV__:', __DEV__);
+  if (!__DEV__) {
+    console.log('[SEED] Not in dev mode, skipping');
+    return;
+  }
+  console.log('[SEED] Starting seed for user:', userId);
 
   const usersRef = collection(firestore(), 'users');
   const lat = userCoords.latitude;
@@ -145,4 +152,21 @@ export async function seedDemoData(
       timestamp: serverTimestamp(),
     });
   }
+}
+
+/**
+ * Remove all demo athlete profiles from Firestore.
+ * Identifies demo users by ID prefix 'demo_athlete_'.
+ */
+export async function clearDemoData(): Promise<void> {
+  const usersRef = collection(firestore(), 'users');
+  const snap = await getDocs(usersRef);
+  const batch: Promise<void>[] = [];
+  for (const d of snap.docs) {
+    if (d.id.startsWith('demo_athlete_')) {
+      batch.push(deleteDoc(doc(firestore(), 'users', d.id)));
+    }
+  }
+  await Promise.all(batch);
+  console.log(`[SEED] Cleared ${batch.length} demo athletes`);
 }
