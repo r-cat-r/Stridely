@@ -6,14 +6,48 @@ import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 import { RootNavigator } from '@/navigation/RootNavigator';
 
+// DEBUG: Confirm bundle execution
+console.log('[APP ENTRY] Bundle loaded, executing App.tsx');
+
+// @ts-ignore
+const isDev = __DEV__;
+
 function AppContent(): React.JSX.Element {
-  const { userId, loading } = useAuth();
+  console.log('[APP] AppContent rendering');
+  const { userId, loading, error } = useAuth();
+  console.log('[APP] Auth state:', { userId, loading, error: error?.message });
+
+  if (isDev && (loading || error)) {
+    console.log('[APP] Auth state:', { loading, error: error?.message, userId });
+  }
+
+  // TEMP: Verify Firebase exports
+  if (isDev) {
+    try {
+      const { getFirebaseApp, auth, firestore } = require('@/services/firebase');
+      const app = getFirebaseApp();
+      console.log('[APP] Firebase app initialized:', !!app);
+      console.log('[APP] Auth instance:', !!auth());
+      console.log('[APP] Firestore instance:', !!firestore());
+    } catch (e) {
+      console.error('[APP] Firebase init error:', e);
+    }
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white p-6">
+        <Text className="text-red-600 font-bold mb-2">Auth Error</Text>
+        <Text className="text-slate-600 text-center">{error.message}</Text>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" />
-        <Text className="mt-4 text-slate-600">Loading...</Text>
+        <ActivityIndicator size="large" color="#FC4C02" />
+        <Text className="mt-4 text-slate-600">Initializing...</Text>
       </View>
     );
   }

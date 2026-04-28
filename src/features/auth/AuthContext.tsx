@@ -37,9 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
   });
 
   const loadProfile = useCallback(async (uid: string): Promise<UserProfile | null> => {
+    if (__DEV__) console.log('[AUTH] Loading profile for:', uid);
     let profile = await getUserProfile(uid);
     if (!profile) {
-      // Create profile for new user
+      if (__DEV__) console.log('[AUTH] No profile found, creating new user profile');
       const { auth } = await import('@/services/authService');
       const authUser = auth().currentUser;
       if (authUser) {
@@ -49,18 +50,25 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
           photoURL: authUser.photoURL ?? null,
         });
         profile = await getUserProfile(uid);
+        if (__DEV__) console.log('[AUTH] Profile created:', profile?.id);
       }
     }
     return profile ?? null;
   }, []);
 
   const refreshProfile = useCallback(async (): Promise<void> => {
-    if (!state.userId) return;
+    if (!state.userId) {
+      if (__DEV__) console.log('[AUTH] refreshProfile: no userId');
+      return;
+    }
+    if (__DEV__) console.log('[AUTH] Refreshing profile for:', state.userId);
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const profile = await loadProfile(state.userId);
       setState((s) => ({ ...s, profile, loading: false, error: null }));
+      if (__DEV__) console.log('[AUTH] Profile refreshed');
     } catch (err) {
+      if (__DEV__) console.error('[AUTH] Profile refresh error:', err);
       setState((s) => ({
         ...s,
         loading: false,
@@ -75,7 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
   }, []);
 
   useEffect(() => {
+    if (__DEV__) console.log('[AUTH] Setting up auth state listener');
     const unsub = subscribeToAuthState(async (user) => {
+      if (__DEV__) console.log('[AUTH] Auth state changed:', user ? `uid=${user.uid}` : 'logged out');
       if (!user) {
         setState({ userId: null, profile: null, loading: false, error: null });
         return;
@@ -85,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
         const profile = await loadProfile(user.uid);
         setState({ userId: user.uid, profile, loading: false, error: null });
       } catch (err) {
+        if (__DEV__) console.error('[AUTH] Error loading profile:', err);
         setState({
           userId: user.uid,
           profile: null,

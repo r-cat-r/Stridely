@@ -2,7 +2,7 @@
  * Invites screen - view and respond to buddy invites
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,23 +22,32 @@ export function InvitesScreen(): React.JSX.Element {
   const { userId } = useAuth();
   const [invites, setInvites] = useState<BuddyInvite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
 
-  const loadInvites = async (): Promise<void> => {
+  const loadInvites = useCallback(async (): Promise<void> => {
     if (!userId) return;
     try {
+      setError(null);
       const list = await getInvitesForUser(userId);
       setInvites(list.filter((i) => i.status === 'pending'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load invites');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
+    if (!userId) {
+      if (__DEV__) console.log('[INVITES] No userId, skipping load');
+      return;
+    }
+    if (__DEV__) console.log('[INVITES] Loading invites for:', userId);
     loadInvites();
-  }, [userId]);
+  }, [userId, loadInvites]);
 
   const handleRespond = async (
     inviteId: string,
@@ -64,6 +73,16 @@ export function InvitesScreen(): React.JSX.Element {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 items-center justify-center p-6">
+        <Text className="text-red-600 font-bold mb-2">Error</Text>
+        <Text className="text-slate-600 text-center mb-4">{error}</Text>
+        <Button onPress={loadInvites}>Retry</Button>
       </View>
     );
   }

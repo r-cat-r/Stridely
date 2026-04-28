@@ -42,7 +42,25 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
   if (!profile) {
     return (
       <View className="flex-1 items-center justify-center p-6 bg-slate-50">
-        <Text className="text-slate-600">Profile not found</Text>
+        <Text className="text-slate-600 mb-4">Profile not found</Text>
+        <Button mode="contained" onPress={refreshProfile} buttonColor="#FC4C02">
+          Create Profile
+        </Button>
+      </View>
+    );
+  }
+
+  if (profile.sportsProfiles.length === 0) {
+    return (
+      <View className="flex-1 items-center justify-center p-6 bg-slate-50">
+        <Text className="text-slate-600 mb-4">No sports profiles yet</Text>
+        <Button
+          mode="contained"
+          onPress={() => navigation.navigate('SportsProfiles')}
+          buttonColor="#FC4C02"
+        >
+          Create Sports Profile
+        </Button>
       </View>
     );
   }

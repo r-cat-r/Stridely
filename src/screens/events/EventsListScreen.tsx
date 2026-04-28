@@ -22,12 +22,16 @@ type Props = NativeStackScreenProps<EventsStackParamList, 'EventsList'>;
 export function EventsListScreen({ navigation }: Props): React.JSX.Element {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     try {
+      setError(null);
       const list = await getAllUpcomingEvents();
       setEvents(list);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load events');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -43,6 +47,16 @@ export function EventsListScreen({ navigation }: Props): React.JSX.Element {
       <View className="flex-1 items-center justify-center bg-slate-50">
         <ActivityIndicator size="large" color="#FC4C02" />
         <Text className="mt-4 text-slate-600">Loading events...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 items-center justify-center p-6 bg-slate-50">
+        <Text className="text-red-600 font-bold mb-2">Error</Text>
+        <Text className="text-slate-600 text-center mb-4">{error}</Text>
+        <Button onPress={load}>Retry</Button>
       </View>
     );
   }

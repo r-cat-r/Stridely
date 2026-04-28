@@ -44,6 +44,13 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
   }, [userId, profile?.activeSportId, profile?.coordinates, radius]);
 
   useEffect(() => {
+    if (__DEV__) {
+      console.log('[FIND_BUDDY] Dependencies changed:', {
+        hasUserId: !!userId,
+        hasSportId: !!profile?.activeSportId,
+        hasCoordinates: !!profile?.coordinates,
+      });
+    }
     loadMatches();
   }, [loadMatches]);
 
