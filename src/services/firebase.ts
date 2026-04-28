@@ -60,6 +60,7 @@ export function getFirebaseApp(): FirebaseApp {
       const errorMsg = `[FIREBASE ERROR] Config missing. Steps:
 1. Create .env file at project root with EXPO_PUBLIC_* variables
 2. Variables: EXPO_PUBLIC_FIREBASE_API_KEY, EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN, etc.
+
 3. Restart Expo: npx expo start --clear
 Current config: ${JSON.stringify(Constants.expoConfig?.extra, null, 2)}`;
       console.error(errorMsg);
