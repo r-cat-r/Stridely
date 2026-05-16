@@ -6,8 +6,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Dimensions, StyleSheet } from 'react-native';
-import { Button } from 'react-native-paper';
+import { View, Text, Dimensions, StyleSheet, TouchableOpacity } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { DiscoveryCard } from './DiscoveryCard';
+import { colors, spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import type { DiscoveryMatch } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -137,41 +138,43 @@ function TopSwipeableCard({
         <Animated.View style={[styles.card, animatedStyle]}>
           <DiscoveryCard match={match} />
           <View style={styles.actions}>
-            <Button
-              mode="outlined"
+            {/* Skip */}
+            <TouchableOpacity
+              style={styles.skipBtn}
               onPress={() => {
                 translateX.value = withSpring(-SCREEN_WIDTH * 1.2, SPRING_CONFIG, () => {
                   runOnJS(triggerSkip)();
                 });
               }}
-              icon="close"
-              style={styles.skipBtn}
-              labelStyle={styles.actionLabel}
+              activeOpacity={0.7}
             >
-              Skip
-            </Button>
-            <Button
-              mode="contained"
-              onPress={onViewProfile}
-              icon="account"
+              <MaterialCommunityIcons name="close" size={18} color={colors.error} />
+              <Text style={[styles.actionLabel, { color: colors.error }]}>Skip</Text>
+            </TouchableOpacity>
+
+            {/* Profile */}
+            <TouchableOpacity
               style={styles.profileBtn}
-              labelStyle={styles.actionLabel}
+              onPress={onViewProfile}
+              activeOpacity={0.7}
             >
-              Profile
-            </Button>
-            <Button
-              mode="contained"
+              <MaterialCommunityIcons name="account" size={18} color={colors.text} />
+              <Text style={[styles.actionLabel, { color: colors.text }]}>Profile</Text>
+            </TouchableOpacity>
+
+            {/* Invite */}
+            <TouchableOpacity
+              style={styles.inviteBtn}
               onPress={() => {
                 translateX.value = withSpring(SCREEN_WIDTH * 1.2, SPRING_CONFIG, () => {
                   runOnJS(triggerInvite)();
                 });
               }}
-              icon="send"
-              style={styles.inviteBtn}
-              labelStyle={styles.actionLabel}
+              activeOpacity={0.7}
             >
-              Invite
-            </Button>
+              <MaterialCommunityIcons name="send" size={18} color={colors.textOnPrimary} />
+              <Text style={[styles.actionLabel, { color: colors.textOnPrimary }]}>Invite</Text>
+            </TouchableOpacity>
           </View>
         </Animated.View>
       </Animated.View>
@@ -211,15 +214,39 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   skipBtn: {
-    borderColor: '#94A3B8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1.5,
+    borderColor: colors.error,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.errorLight,
   },
   profileBtn: {
-    backgroundColor: '#64748B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
   },
   inviteBtn: {
-    backgroundColor: '#22C55E',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.primary,
+    ...shadows.glow,
   },
   actionLabel: {
     fontSize: 13,
+    fontWeight: '600',
   },
 });

@@ -6,12 +6,15 @@
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, ActivityIndicator, RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/features/auth/AuthContext';
 import { discoverAthletes } from '@/services/matchingService';
 import { sendInvite, getSentInvites } from '@/services/inviteService';
+import { getBlockedUserIds } from '@/services/blockService';
 import { SwipeableCardStack } from '@/components/SwipeableCardStack';
 import { ErrorView } from '@/components/ErrorView';
+import { colors, spacing, typography } from '@/constants/theme';
 import type { DiscoveryMatch } from '@/types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { FindBuddyStackParamList } from '@/navigation/stacks/FindBuddyStack';
@@ -40,10 +43,11 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
       return;
     }
     try {
-      // Fetch matches and sent invites in parallel
-      const [result, sentInvites] = await Promise.all([
+      // Fetch matches, sent invites, and blocked users in parallel
+      const [result, sentInvites, blockedIds] = await Promise.all([
         discoverAthletes(userId, radius),
         getSentInvites(userId),
+        getBlockedUserIds(userId),
       ]);
 
       // Build set of users we've already invited (pending or accepted)
@@ -53,12 +57,18 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
           .map((inv) => inv.toUserId)
       );
 
+      // Build set of blocked users
+      const blockedSet = new Set(blockedIds);
+
       // Merge with locally-tracked invites from this session
       invitedIdsRef.current.forEach((id) => alreadyInvited.add(id));
 
-      // Filter out already-invited users and self
+      // Filter out already-invited, blocked, and self
       const filtered = result.filter(
-        (m) => !alreadyInvited.has(m.user.id) && m.user.id !== userId
+        (m) =>
+          !alreadyInvited.has(m.user.id) &&
+          !blockedSet.has(m.user.id) &&
+          m.user.id !== userId
       );
 
       setMatches(filtered);
@@ -102,8 +112,12 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
 
   if (!profile?.activeSportId) {
     return (
-      <View className="flex-1 items-center justify-center p-8">
-        <Text className="text-center text-slate-600 mb-4">
+      <View style={styles.centered}>
+        <View style={styles.emptyIconWrap}>
+          <MaterialCommunityIcons name="dumbbell" size={40} color={colors.textMuted} />
+        </View>
+        <Text style={styles.emptyTitle}>No active sport</Text>
+        <Text style={styles.emptySubtitle}>
           Set your active sport in Profile to discover athletes.
         </Text>
       </View>
@@ -112,8 +126,12 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
 
   if (!profile?.coordinates) {
     return (
-      <View className="flex-1 items-center justify-center p-8">
-        <Text className="text-center text-slate-600">
+      <View style={styles.centered}>
+        <View style={styles.emptyIconWrap}>
+          <MaterialCommunityIcons name="crosshairs-gps" size={40} color={colors.textMuted} />
+        </View>
+        <Text style={styles.emptyTitle}>Location required</Text>
+        <Text style={styles.emptySubtitle}>
           Enable location to find nearby athletes.
         </Text>
       </View>
@@ -122,9 +140,9 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
 
   if (loading && !refreshing) {
     return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="#FC4C02" />
-        <Text className="mt-4 text-slate-600">Finding athletes...</Text>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Finding athletes...</Text>
       </View>
     );
   }
@@ -144,7 +162,7 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
 
   return (
     <ScrollView
-      className="flex-1 bg-slate-50"
+      style={styles.screen}
       contentContainerStyle={{ flexGrow: 1 }}
       refreshControl={
         <RefreshControl
@@ -153,15 +171,16 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
             setRefreshing(true);
             loadMatches();
           }}
+          colors={[colors.primary]}
         />
       }
     >
-      <View className="px-4 pt-2 pb-4">
-        <Text className="text-sm text-slate-600 text-center">
+      <View style={styles.headerInfo}>
+        <Text style={styles.headerHint}>
           Swipe right to invite • Swipe left to skip
         </Text>
-        <Text className="text-xs text-slate-500 text-center mt-1">
-          {radius}km radius • {matches.length} athletes
+        <Text style={styles.headerStats}>
+          {radius}km radius • {matches.length} athlete{matches.length !== 1 ? 's' : ''}
         </Text>
       </View>
       <View style={{ flex: 1, minHeight: 520 }}>
@@ -173,11 +192,12 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
             onViewProfile={handleViewProfile}
           />
         ) : (
-          <View className="flex-1 items-center justify-center p-8">
-            <Text className="text-center text-slate-600 mb-2">
-              No athletes found in your area.
-            </Text>
-            <Text className="text-center text-slate-500 text-sm">
+          <View style={styles.centered}>
+            <View style={styles.emptyIconWrap}>
+              <MaterialCommunityIcons name="account-search-outline" size={40} color={colors.textMuted} />
+            </View>
+            <Text style={styles.emptyTitle}>No athletes found</Text>
+            <Text style={styles.emptySubtitle}>
               Try increasing your search radius in Profile.
             </Text>
           </View>
@@ -186,3 +206,56 @@ export function FindBuddyScreen({ navigation }: Props): React.JSX.Element {
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    padding: spacing['3xl'],
+  },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
+  },
+  emptyTitle: {
+    ...typography.h2,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    ...typography.body,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.textMuted,
+    marginTop: spacing.lg,
+  },
+  headerInfo: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  headerHint: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  headerStats: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+});

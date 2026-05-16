@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { EventsListScreen } from '@/screens/events/EventsListScreen';
 import { EventDetailScreen } from '@/screens/events/EventDetailScreen';
 import { CreateEventScreen } from '@/screens/events/CreateEventScreen';
+import { colors } from '@/constants/theme';
 
 export type EventsStackParamList = {
   EventsList: undefined;
@@ -18,7 +19,7 @@ const Stack = createNativeStackNavigator<EventsStackParamList>();
 
 export function EventsStack(): React.JSX.Element {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: true }}>
+    <Stack.Navigator screenOptions={{ headerShown: true, headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text, headerTitleStyle: { color: colors.text } }}>
       <Stack.Screen
         name="EventsList"
         component={EventsListScreen}

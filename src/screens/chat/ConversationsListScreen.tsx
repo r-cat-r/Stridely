@@ -1,10 +1,11 @@
 /**
  * Conversations list screen
  *
- * Shows all conversations with a FAB to start new chats with friends.
+ * Shows all conversations with Instagram DM-style unread indicators.
+ * FAB to start new chats with friends.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,10 +19,14 @@ import {
 } from 'react-native';
 import { FAB } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   getConversationsForUser,
   getMessages,
   createConversation,
+  findConversationByParticipants,
+  subscribeToConversations,
+  getUnreadCount,
 } from '@/services/conversationService';
 import { getInvitesForUser, getSentInvites } from '@/services/inviteService';
 import { getUserProfile } from '@/services/userService';
@@ -34,6 +39,22 @@ interface EnrichedConversation extends Conversation {
   otherPhoto: string | null;
   lastMessage?: string;
   otherInitial: string;
+  unreadCount: number;
+  lastMessageTime: number;
+}
+
+/** Relative time label like Instagram DM */
+function formatRelativeTime(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w`;
 }
 
 export function ConversationsListScreen({
@@ -49,45 +70,135 @@ export function ConversationsListScreen({
   const [friendProfiles, setFriendProfiles] = useState<UserProfile[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
 
-  const load = useCallback(async (): Promise<void> => {
-    if (!userId) return;
-    try {
-      const list = await getConversationsForUser(userId);
-      const enriched = await Promise.all(
-        list.map(async (c) => {
+  const enrichConversations = useCallback(
+    async (list: Conversation[]): Promise<EnrichedConversation[]> => {
+      // Deduplicate: keep only the most recent conversation per buddy
+      const bestPerBuddy = new Map<string, Conversation>();
+      for (const c of list) {
+        const otherId = c.participantIds.find((id) => id !== userId) ?? '';
+        const existing = bestPerBuddy.get(otherId);
+        if (!existing || c.updatedAt > existing.updatedAt) {
+          bestPerBuddy.set(otherId, c);
+        }
+      }
+      const deduplicated = Array.from(bestPerBuddy.values());
+
+      const results: EnrichedConversation[] = [];
+      for (const c of deduplicated) {
+        try {
           const otherId = c.participantIds.find((id) => id !== userId);
           const other = otherId ? await getUserProfile(otherId) : null;
-          const msgs = await getMessages(c.id, 1);
-          const last = msgs[0];
-          return {
+
+          let lastText = c.lastMessage;
+          if (!lastText) {
+            try {
+              const msgs = await getMessages(c.id, 1);
+              lastText = msgs[0]?.text;
+            } catch {
+              // Skip gracefully
+            }
+          }
+
+          let unread = 0;
+          try {
+            unread = userId ? await getUnreadCount(c.id, userId) : 0;
+          } catch {
+            // Skip unread count on failure
+          }
+
+          results.push({
             ...c,
             otherName: other?.displayName || other?.email || 'Unknown',
             otherPhoto: other?.photoURL ?? null,
             otherInitial: (other?.displayName?.[0] || other?.email?.[0] || '?').toUpperCase(),
-            lastMessage: last?.text,
-          };
-        })
-      );
-      setConversations(enriched);
+            lastMessage: lastText,
+            unreadCount: unread,
+            lastMessageTime: c.updatedAt,
+          });
+        } catch {
+          results.push({
+            ...c,
+            otherName: 'Unknown',
+            otherPhoto: null,
+            otherInitial: '?',
+            lastMessage: c.lastMessage,
+            unreadCount: 0,
+            lastMessageTime: c.updatedAt,
+          });
+        }
+      }
+      return results;
+    },
+    [userId]
+  );
+
+  const load = useCallback(async (): Promise<void> => {
+    if (!userId) return;
+    try {
+      const list = await getConversationsForUser(userId);
+      setConversations(await enrichConversations(list));
+    } catch (err) {
+      console.error('[CONVERSATIONS] Load error:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userId]);
+  }, [enrichConversations, userId]);
 
+  // Real-time subscription — debounced to avoid overwriting focus-triggered load
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!userId) return;
+    let active = true;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const unsub = subscribeToConversations(userId, (list) => {
+      if (!active) return;
+      // Debounce: wait 1.5s before re-enriching so focus load takes priority
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        if (!active) return;
+        try {
+          setLoading(false);
+          setConversations(await enrichConversations(list));
+        } catch (err) {
+          console.error('[CONVERSATIONS] Subscription error:', err);
+        }
+      }, 1500);
+    });
+
+    return () => {
+      active = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsub();
+    };
+  }, [enrichConversations, userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const openNewChat = useCallback(async () => {
     if (!userId) return;
     setShowNewChat(true);
     setLoadingFriends(true);
     try {
-      const [received, sent] = await Promise.all([
+      const [received, sent, existingConvos] = await Promise.all([
         getInvitesForUser(userId),
         getSentInvites(userId),
+        getConversationsForUser(userId),
       ]);
+
+      // Collect IDs of buddies who already have a conversation
+      const buddiesWithChat = new Set<string>();
+      for (const c of existingConvos) {
+        if (c.type === 'buddy') {
+          const otherId = c.participantIds.find((id) => id !== userId);
+          if (otherId) buddiesWithChat.add(otherId);
+        }
+      }
+
       const acceptedInvites = [
         ...received.filter((i) => i.status === 'accepted'),
         ...sent.filter((i) => i.status === 'accepted'),
@@ -98,6 +209,8 @@ export function ConversationsListScreen({
         const otherId = inv.fromUserId === userId ? inv.toUserId : inv.fromUserId;
         if (seen.has(otherId)) continue;
         seen.add(otherId);
+        // Skip buddies who already have a conversation
+        if (buddiesWithChat.has(otherId)) continue;
         const p = await getUserProfile(otherId);
         if (p) profiles.push(p);
       }
@@ -111,21 +224,32 @@ export function ConversationsListScreen({
     async (friendId: string) => {
       if (!userId) return;
       setShowNewChat(false);
-      // Check if conversation already exists
-      const existing = conversations.find(
-        (c) =>
-          c.type === 'buddy' &&
-          c.participantIds.includes(friendId) &&
-          c.participantIds.includes(userId)
-      );
+
+      const existing = await findConversationByParticipants(userId, friendId, 'buddy');
       if (existing) {
         navigation.navigate('ChatDetail', { conversationId: existing.id });
         return;
       }
+
       const conv = await createConversation('buddy', [userId, friendId]);
+      const friendProfile = friendProfiles.find((p) => p.id === friendId) ??
+        (await getUserProfile(friendId));
+
+      setConversations((prev) => [
+        {
+          ...conv,
+          otherName: friendProfile?.displayName || friendProfile?.email || 'Unknown',
+          otherPhoto: friendProfile?.photoURL ?? null,
+          otherInitial: (friendProfile?.displayName?.[0] || friendProfile?.email?.[0] || '?').toUpperCase(),
+          lastMessage: undefined,
+          unreadCount: 0,
+          lastMessageTime: conv.updatedAt,
+        },
+        ...prev,
+      ]);
       navigation.navigate('ChatDetail', { conversationId: conv.id });
     },
-    [userId, conversations, navigation]
+    [userId, friendProfiles, navigation]
   );
 
   if (loading && !refreshing) {
@@ -155,48 +279,12 @@ export function ConversationsListScreen({
           />
         }
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
+          <ConversationCard
+            conversation={item}
             onPress={() =>
               navigation.navigate('ChatDetail', { conversationId: item.id })
             }
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardRow}>
-              {item.otherPhoto ? (
-                <Image
-                  source={{ uri: item.otherPhoto }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                  <Text style={styles.avatarText}>{item.otherInitial}</Text>
-                </View>
-              )}
-              <View style={styles.cardInfo}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardName} numberOfLines={1}>
-                    {item.otherName}
-                  </Text>
-                  <View style={styles.typeBadge}>
-                    <Text style={styles.typeBadgeText}>{item.type}</Text>
-                  </View>
-                </View>
-                {item.lastMessage ? (
-                  <Text style={styles.lastMessage} numberOfLines={1}>
-                    {item.lastMessage}
-                  </Text>
-                ) : (
-                  <Text style={styles.noMessage}>No messages yet</Text>
-                )}
-              </View>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={20}
-                color={colors.textMuted}
-              />
-            </View>
-          </TouchableOpacity>
+          />
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
@@ -309,6 +397,82 @@ export function ConversationsListScreen({
   );
 }
 
+/** Single conversation card with Instagram DM-style unread indicator */
+function ConversationCard({
+  conversation,
+  onPress,
+}: {
+  conversation: EnrichedConversation;
+  onPress: () => void;
+}): React.JSX.Element {
+  const hasUnread = conversation.unreadCount > 0;
+
+  const previewText = (): string => {
+    if (!hasUnread) {
+      return conversation.lastMessage || 'No messages yet';
+    }
+    if (conversation.unreadCount === 1) {
+      return conversation.lastMessage || 'New message';
+    }
+    return `${conversation.unreadCount} new messages`;
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardRow}>
+        {/* Avatar */}
+        {conversation.otherPhoto ? (
+          <Image
+            source={{ uri: conversation.otherPhoto }}
+            style={styles.avatar}
+          />
+        ) : (
+          <View style={[styles.avatar, styles.avatarPlaceholder]}>
+            <Text style={styles.avatarText}>{conversation.otherInitial}</Text>
+          </View>
+        )}
+
+        {/* Content */}
+        <View style={styles.cardInfo}>
+          <View style={styles.cardHeader}>
+            <Text
+              style={[styles.cardName, hasUnread && styles.cardNameUnread]}
+              numberOfLines={1}
+            >
+              {conversation.otherName}
+            </Text>
+            <Text
+              style={[
+                styles.timeLabel,
+                hasUnread && styles.timeLabelUnread,
+              ]}
+            >
+              {formatRelativeTime(conversation.lastMessageTime)}
+            </Text>
+          </View>
+          <View style={styles.previewRow}>
+            <Text
+              style={[
+                styles.previewText,
+                hasUnread && styles.previewTextUnread,
+                !conversation.lastMessage && !hasUnread && styles.noMessage,
+              ]}
+              numberOfLines={1}
+            >
+              {previewText()}
+            </Text>
+            {hasUnread && <View style={styles.unreadDot} />}
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -321,8 +485,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   list: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   emptyContainer: { flex: 1 },
   emptyState: {
@@ -346,11 +510,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
   },
+
+  // Card
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    padding: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     ...shadows.sm,
   },
   cardRow: {
@@ -358,9 +525,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     marginRight: spacing.md,
   },
   avatarPlaceholder: {
@@ -369,7 +536,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 18,
+    fontSize: 20,
     color: colors.textOnPrimary,
     fontWeight: '700',
   },
@@ -378,22 +545,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 2,
+    marginBottom: 3,
   },
-  cardName: { ...typography.h3, color: colors.text, flex: 1, marginRight: 8 },
-  typeBadge: {
-    backgroundColor: colors.borderLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
+  cardName: {
+    ...typography.h3,
+    color: colors.text,
+    flex: 1,
+    marginRight: 8,
+    fontSize: 16,
   },
-  typeBadgeText: {
+  cardNameUnread: {
+    fontWeight: '700',
+  },
+  timeLabel: {
     ...typography.caption,
     color: colors.textMuted,
-    textTransform: 'capitalize',
+    fontSize: 12,
   },
-  lastMessage: { ...typography.bodySmall, color: colors.textSecondary },
-  noMessage: { ...typography.bodySmall, color: colors.textMuted, fontStyle: 'italic' },
+  timeLabelUnread: {
+    color: colors.secondary,
+    fontWeight: '600',
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  previewText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  previewTextUnread: {
+    color: colors.text,
+    fontWeight: '700',
+  },
+  noMessage: {
+    color: colors.textMuted,
+    fontStyle: 'italic',
+  },
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.secondary,
+  },
 
   fab: {
     position: 'absolute',

@@ -1,10 +1,11 @@
 /**
- * Friends screen - shows accepted buddy connections
+ * Friends screen — accepted buddy connections
  *
- * Each friend card shows profile info with actions:
- * - View Profile → navigate to UserDetail
- * - Chat → find/create conversation and navigate
- * - Remove → delete the buddy invite
+ * Actions per friend:
+ * - Tap card → View Profile
+ * - Chat → navigates to Chat tab with proper back stack
+ * - Block → blocks user and removes from list
+ * - Remove → removes connection (keeps conversation history)
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -25,7 +26,9 @@ import { getUserProfile } from '@/services/userService';
 import {
   getConversationsForUser,
   createConversation,
+  findConversationByParticipants,
 } from '@/services/conversationService';
+import { blockUser } from '@/services/blockService';
 import { useAuth } from '@/features/auth/AuthContext';
 import { colors, spacing, borderRadius, shadows, typography } from '@/constants/theme';
 import type { UserProfile, BuddyInvite } from '@/types';
@@ -38,6 +41,18 @@ interface Friend {
   profile: UserProfile;
   invite: BuddyInvite;
   conversationId: string | null;
+}
+
+function formatLastActive(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Active now';
+  if (mins < 60) return `Active ${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Active ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Active yesterday';
+  return `Active ${days}d ago`;
 }
 
 export function FriendsScreen({ navigation }: Props): React.JSX.Element {
@@ -60,7 +75,6 @@ export function FriendsScreen({ navigation }: Props): React.JSX.Element {
         ...sent.filter((i) => i.status === 'accepted'),
       ];
 
-      // Deduplicate by other user's ID
       const seen = new Set<string>();
       const uniqueInvites: BuddyInvite[] = [];
       for (const inv of acceptedInvites) {
@@ -111,14 +125,20 @@ export function FriendsScreen({ navigation }: Props): React.JSX.Element {
       if (!userId) return;
       let conversationId = friend.conversationId;
       if (!conversationId) {
-        // Create a new buddy conversation
-        const conv = await createConversation('buddy', [userId, friend.profile.id]);
-        conversationId = conv.id;
+        const existingConv = await findConversationByParticipants(userId, friend.profile.id, 'buddy');
+        if (existingConv) {
+          conversationId = existingConv.id;
+        } else {
+          const conv = await createConversation('buddy', [userId, friend.profile.id]);
+          conversationId = conv.id;
+        }
       }
-      // Navigate to the Chat tab and into the chat detail
+      // Navigate to Chat tab → ConversationsList (root) → then push ChatDetail
+      // This ensures back button on ChatDetail returns to ConversationsList
       navigation.getParent()?.navigate('Chat', {
         screen: 'ChatDetail',
         params: { conversationId },
+        initial: false,  // ensures ConversationsList stays in the back stack
       });
     },
     [userId, navigation]
@@ -128,7 +148,7 @@ export function FriendsScreen({ navigation }: Props): React.JSX.Element {
     (friend: Friend) => {
       Alert.alert(
         'Remove Connection',
-        `Remove ${friend.profile.displayName || 'this athlete'} from your connections?`,
+        `Remove ${friend.profile.displayName || 'this athlete'} from your connections?\n\nConversation history will be preserved.`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -151,6 +171,36 @@ export function FriendsScreen({ navigation }: Props): React.JSX.Element {
     []
   );
 
+  const handleBlock = useCallback(
+    (friend: Friend) => {
+      Alert.alert(
+        'Block User',
+        `Block ${friend.profile.displayName || 'this athlete'}?\n\nThey won't appear in your discovery and can't send you invites.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Block',
+            style: 'destructive',
+            onPress: async () => {
+              if (!userId) return;
+              try {
+                await blockUser(userId, friend.profile.id);
+                // Also remove the connection
+                await deleteInvite(friend.invite.id);
+                setFriends((prev) =>
+                  prev.filter((f) => f.profile.id !== friend.profile.id)
+                );
+              } catch (err) {
+                console.error('[FRIENDS] Block error:', err);
+              }
+            },
+          },
+        ]
+      );
+    },
+    [userId]
+  );
+
   if (loading && !refreshing) {
     return (
       <View style={styles.centered}>
@@ -161,6 +211,15 @@ export function FriendsScreen({ navigation }: Props): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
+      {/* Header count */}
+      {friends.length > 0 && (
+        <View style={styles.headerBar}>
+          <Text style={styles.headerCount}>
+            {friends.length} connection{friends.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      )}
+
       <FlatList
         data={friends}
         keyExtractor={(item) => item.profile.id}
@@ -183,6 +242,7 @@ export function FriendsScreen({ navigation }: Props): React.JSX.Element {
             onViewProfile={() => handleViewProfile(item.profile.id)}
             onChat={() => handleChat(item)}
             onRemove={() => handleRemove(item)}
+            onBlock={() => handleBlock(item)}
           />
         )}
         ListEmptyComponent={
@@ -196,7 +256,7 @@ export function FriendsScreen({ navigation }: Props): React.JSX.Element {
             </View>
             <Text style={styles.emptyTitle}>No connections yet</Text>
             <Text style={styles.emptySubtitle}>
-              Accept or send buddy invites to connect{'\n'}with athletes near you
+              Accept or send buddy invites to{'\n'}connect with athletes near you
             </Text>
           </View>
         }
@@ -210,6 +270,7 @@ interface FriendCardProps {
   onViewProfile: () => void;
   onChat: () => void;
   onRemove: () => void;
+  onBlock: () => void;
 }
 
 function FriendCard({
@@ -217,19 +278,21 @@ function FriendCard({
   onViewProfile,
   onChat,
   onRemove,
+  onBlock,
 }: FriendCardProps): React.JSX.Element {
   const { profile } = friend;
   const activeSport = profile.sportsProfiles.find(
     (p) => p.id === profile.activeSportId
   );
+  const [showMore, setShowMore] = useState(false);
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onViewProfile}
-      activeOpacity={0.85}
-    >
-      <View style={styles.cardContent}>
+    <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.cardContent}
+        onPress={onViewProfile}
+        activeOpacity={0.85}
+      >
         {/* Avatar */}
         {profile.photoURL ? (
           <Image source={{ uri: profile.photoURL }} style={styles.avatar} />
@@ -269,8 +332,18 @@ function FriendCard({
               {profile.bio}
             </Text>
           ) : null}
+          <Text style={styles.lastActive}>
+            {formatLastActive(profile.lastActive)}
+          </Text>
         </View>
-      </View>
+
+        {/* Chevron */}
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={20}
+          color={colors.textMuted}
+        />
+      </TouchableOpacity>
 
       {/* Action buttons */}
       <View style={styles.actions}>
@@ -279,8 +352,8 @@ function FriendCard({
           onPress={onChat}
           activeOpacity={0.7}
         >
-          <MaterialCommunityIcons name="chat-outline" size={18} color={colors.secondary} />
-          <Text style={[styles.actionText, { color: colors.secondary }]}>Chat</Text>
+          <MaterialCommunityIcons name="chat-outline" size={18} color={colors.primary} />
+          <Text style={[styles.actionText, { color: colors.primary }]}>Chat</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -288,11 +361,20 @@ function FriendCard({
           onPress={onRemove}
           activeOpacity={0.7}
         >
-          <MaterialCommunityIcons name="account-remove-outline" size={18} color={colors.error} />
-          <Text style={[styles.actionText, { color: colors.error }]}>Remove</Text>
+          <MaterialCommunityIcons name="account-remove-outline" size={18} color={colors.textMuted} />
+          <Text style={[styles.actionText, { color: colors.textMuted }]}>Remove</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionBtn]}
+          onPress={onBlock}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="block-helper" size={16} color={colors.error} />
+          <Text style={[styles.actionText, { color: colors.error }]}>Block</Text>
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -307,13 +389,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.background,
   },
-  list: {
+  headerBar: {
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
+  },
+  headerCount: {
+    ...typography.label,
+    color: colors.textMuted,
+  },
+  list: {
     paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
   },
-  emptyContainer: {
-    flex: 1,
-  },
+  emptyContainer: { flex: 1 },
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -329,16 +417,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.xl,
   },
-  emptyTitle: {
-    ...typography.h2,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  emptySubtitle: {
-    ...typography.body,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
+  emptyTitle: { ...typography.h2, color: colors.text, marginBottom: spacing.sm },
+  emptySubtitle: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
@@ -352,9 +432,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     marginRight: spacing.lg,
   },
   avatarPlaceholder: {
@@ -363,33 +443,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 22,
+    fontSize: 20,
     color: colors.textOnPrimary,
     fontWeight: '700',
   },
-  info: {
-    flex: 1,
-  },
-  name: {
-    ...typography.h3,
-    color: colors.text,
-    marginBottom: 2,
-  },
+  info: { flex: 1 },
+  name: { ...typography.h3, color: colors.text, marginBottom: 2 },
   sportRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginBottom: 2,
   },
-  sportText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  bio: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
+  sportText: { ...typography.caption, color: colors.primary, fontWeight: '500' },
+  bio: { ...typography.caption, color: colors.textSecondary },
+  lastActive: { ...typography.caption, color: colors.accent, fontSize: 11, marginTop: 2 },
   actions: {
     flexDirection: 'row',
     borderTopWidth: 1,
@@ -401,14 +469,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.md,
-    gap: 6,
+    gap: 5,
   },
   chatBtn: {
     borderRightWidth: 1,
     borderRightColor: colors.borderLight,
   },
-  removeBtn: {},
-  actionText: {
-    ...typography.label,
+  removeBtn: {
+    borderRightWidth: 1,
+    borderRightColor: colors.borderLight,
   },
+  actionText: { ...typography.label, fontSize: 12 },
 });

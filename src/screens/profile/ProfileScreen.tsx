@@ -1,9 +1,9 @@
 /**
- * Profile screen — premium athlete style
+ * Profile screen — premium dark athlete style
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Alert, StyleSheet, TouchableOpacity } from 'react-native';
 import { Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -51,9 +51,13 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
         </View>
         <Text style={styles.emptyTitle}>Welcome to Stridely</Text>
         <Text style={styles.emptySubtitle}>Create your profile to get started</Text>
-        <Button mode="contained" onPress={refreshProfile} buttonColor={colors.primary} style={{ marginTop: spacing.xl }}>
-          Create Profile
-        </Button>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={refreshProfile}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.primaryBtnText}>Create Profile</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -68,14 +72,13 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
         <Text style={styles.emptySubtitle}>
           Tell us about your sport to find{'\n'}compatible training partners
         </Text>
-        <Button
-          mode="contained"
+        <TouchableOpacity
+          style={styles.primaryBtn}
           onPress={() => navigation.navigate('SportsProfiles')}
-          buttonColor={colors.primary}
-          style={{ marginTop: spacing.xl }}
+          activeOpacity={0.8}
         >
-          Create Sports Profile
-        </Button>
+          <Text style={styles.primaryBtnText}>Create Sports Profile</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -130,8 +133,8 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
           </View>
         ) : coordinates || hasCoordinates ? (
           <View style={styles.statusRow}>
-            <MaterialCommunityIcons name="crosshairs-gps" size={18} color={colors.accent} />
-            <Text style={[styles.statusText, { color: colors.accent }]}>Location active</Text>
+            <MaterialCommunityIcons name="crosshairs-gps" size={18} color={colors.primary} />
+            <Text style={[styles.statusText, { color: colors.primary }]}>Location active</Text>
           </View>
         ) : (
           <ActionButton
@@ -183,15 +186,14 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
           </View>
         )}
 
-        <Button
-          mode="text"
+        <TouchableOpacity
+          style={styles.signOutBtn}
           onPress={signOut}
-          textColor={colors.error}
-          icon="logout"
-          style={{ marginTop: spacing.lg }}
+          activeOpacity={0.7}
         >
-          Sign Out
-        </Button>
+          <MaterialCommunityIcons name="logout" size={18} color={colors.error} />
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -217,23 +219,27 @@ function ActionButton({
   compact?: boolean;
 }): React.JSX.Element {
   return (
-    <Button
-      mode={filled ? 'contained' : 'outlined'}
+    <TouchableOpacity
       onPress={onPress}
-      icon={icon}
-      loading={loading}
       disabled={disabled}
-      buttonColor={filled ? color : undefined}
-      textColor={filled ? colors.textOnPrimary : color}
+      activeOpacity={0.7}
       style={[
         actionStyles.btn,
-        !filled && { borderColor: color + '40' },
+        filled && { backgroundColor: color },
+        !filled && { borderWidth: 1.5, borderColor: color + '40' },
         compact && { flex: 1 },
+        disabled && { opacity: 0.5 },
       ]}
-      contentStyle={actionStyles.content}
     >
-      {label}
-    </Button>
+      <MaterialCommunityIcons
+        name={icon as any}
+        size={18}
+        color={filled ? colors.textOnPrimary : color}
+      />
+      <Text style={[actionStyles.label, { color: filled ? colors.textOnPrimary : color }]}>
+        {loading ? 'Loading...' : label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -241,9 +247,16 @@ const actionStyles = StyleSheet.create({
   btn: {
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
+    paddingVertical: spacing.md + 2,
+    paddingHorizontal: spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
-  content: {
-    paddingVertical: 4,
+  label: {
+    ...typography.label,
+    fontSize: 14,
   },
 });
 
@@ -263,7 +276,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xl,
@@ -277,6 +290,20 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  primaryBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.md + 2,
+    paddingHorizontal: spacing['3xl'],
+    marginTop: spacing.xl,
+    ...shadows.glow,
+  },
+  primaryBtnText: {
+    ...typography.label,
+    fontSize: 15,
+    color: colors.textOnPrimary,
+    fontWeight: '700',
   },
   loadingText: {
     ...typography.body,
@@ -315,7 +342,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
+    borderTopColor: colors.border,
   },
   devLabel: {
     ...typography.labelSmall,
@@ -325,5 +352,18 @@ const styles = StyleSheet.create({
   devRow: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  signOutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  signOutText: {
+    ...typography.label,
+    color: colors.error,
+    fontSize: 14,
   },
 });

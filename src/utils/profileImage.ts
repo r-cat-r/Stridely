@@ -1,10 +1,12 @@
 /**
- * Profile image handling - pick, compress, and encode as base64 for Firestore
+ * Profile image handling - pick, compress, and encode as base64
+ *
+ * Uses expo-image-manipulator's built-in base64 output instead of
+ * the deprecated FileSystem.readAsStringAsync.
  */
 
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
 
 const MAX_SIZE = 400;
 const COMPRESS_QUALITY = 0.7;
@@ -22,7 +24,7 @@ export async function pickAndEncodeProfileImage(): Promise<ProfileImageDataUri |
   }
 
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [1, 1],
     quality: 0.8,
@@ -34,24 +36,26 @@ export async function pickAndEncodeProfileImage(): Promise<ProfileImageDataUri |
 
   const uri = result.assets[0].uri;
 
+  // Use manipulateAsync with base64: true to avoid deprecated FileSystem API
   const manipulated = await ImageManipulator.manipulateAsync(
     uri,
     [{ resize: { width: MAX_SIZE, height: MAX_SIZE } }],
     {
       compress: COMPRESS_QUALITY,
       format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
     }
   );
 
-  const base64 = await FileSystem.readAsStringAsync(manipulated.uri, {
-    encoding: 'base64',
-  });
+  if (!manipulated.base64) {
+    throw new Error('Failed to encode image as base64');
+  }
 
-  return `data:image/jpeg;base64,${base64}`;
+  return `data:image/jpeg;base64,${manipulated.base64}`;
 }
 
 /**
- * Returns true if the given string is a base64 data URI (e.g. from profile photoURL).
+ * Returns true if the given string is a base64 data URI.
  */
 export function isDataUri(uri: string | null): uri is string {
   return typeof uri === 'string' && uri.startsWith('data:');

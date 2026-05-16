@@ -23,6 +23,7 @@ function fromFirestore(data: Record<string, unknown>): UserProfile {
   const raw = data as Record<string, unknown>;
   return {
     ...raw,
+    lastActive: timestampToMs(raw.lastActive) || Date.now(),
     createdAt: timestampToMs(raw.createdAt),
     updatedAt: timestampToMs(raw.updatedAt),
   } as UserProfile;
@@ -57,6 +58,7 @@ export async function createUserProfile(
     activeSportId: null,
     searchRadiusKm: 5,
     coordinates: null,
+    lastActive: Date.now(),
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -70,7 +72,7 @@ export async function createUserProfile(
 
 export async function updateUserProfile(
   userId: string,
-  updates: Partial<Pick<UserProfile, 'displayName' | 'photoURL' | 'bio' | 'sportsProfiles' | 'activeSportId' | 'searchRadiusKm' | 'coordinates'>>
+  updates: Partial<Pick<UserProfile, 'displayName' | 'photoURL' | 'bio' | 'sportsProfiles' | 'activeSportId' | 'searchRadiusKm' | 'coordinates' | 'lastActive' | 'onboardingComplete'>>
 ): Promise<void> {
   await updateDoc(userDoc(userId), {
     ...updates,
@@ -113,5 +115,14 @@ export async function removeSportsProfile(
   await updateUserProfile(userId, {
     sportsProfiles,
     activeSportId: user.activeSportId === profileId ? null : user.activeSportId,
+  });
+}
+
+/**
+ * Update the lastActive timestamp for a user.
+ */
+export async function updateLastActive(userId: string): Promise<void> {
+  await updateDoc(userDoc(userId), {
+    lastActive: serverTimestamp(),
   });
 }

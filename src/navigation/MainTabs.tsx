@@ -1,15 +1,16 @@
 /**
- * Main tab navigator — premium bottom bar
+ * Main tab navigator — premium dark bottom bar
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FindBuddyStack } from './stacks/FindBuddyStack';
 import { EventsStack } from './stacks/EventsStack';
 import { ChatStack } from './stacks/ChatStack';
 import { ProfileStack } from './stacks/ProfileStack';
+import { AICoachScreen } from '@/screens/ai/AICoachScreen';
 import { colors, spacing, typography } from '@/constants/theme';
 
 export type MainTabParamList = {
@@ -22,20 +23,6 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-function AICoachPlaceholder(): React.JSX.Element {
-  return (
-    <View style={styles.placeholder}>
-      <View style={styles.placeholderIcon}>
-        <MaterialCommunityIcons name="robot-outline" size={48} color={colors.textMuted} />
-      </View>
-      <Text style={styles.placeholderTitle}>AI Coach</Text>
-      <Text style={styles.placeholderSubtitle}>
-        Personalized training recommendations{'\n'}coming soon
-      </Text>
-    </View>
-  );
-}
-
 export function MainTabs(): React.JSX.Element {
   return (
     <Tab.Navigator
@@ -46,13 +33,13 @@ export function MainTabs(): React.JSX.Element {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopWidth: 1,
-          borderTopColor: colors.borderLight,
+          borderTopColor: colors.border,
           paddingTop: 4,
           height: 60,
           elevation: 8,
-          shadowColor: colors.shadowDark,
+          shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 1,
+          shadowOpacity: 0.3,
           shadowRadius: 8,
         },
         tabBarLabelStyle: {
@@ -60,6 +47,10 @@ export function MainTabs(): React.JSX.Element {
           fontWeight: '600',
           marginBottom: 4,
         },
+        headerStyle: {
+          backgroundColor: colors.surface,
+        },
+        headerTintColor: colors.text,
       }}
     >
       <Tab.Screen
@@ -94,9 +85,10 @@ export function MainTabs(): React.JSX.Element {
       />
       <Tab.Screen
         name="AICoach"
-        component={AICoachPlaceholder}
+        component={AICoachScreen}
         options={{
-          tabBarLabel: 'Coach',
+          headerShown: true,
+          title: 'AI Coach',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="robot-outline" size={size} color={color} />
           ),
@@ -116,31 +108,4 @@ export function MainTabs(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  placeholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing['4xl'],
-    backgroundColor: colors.background,
-  },
-  placeholderIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xl,
-  },
-  placeholderTitle: {
-    ...typography.h1,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  placeholderSubtitle: {
-    ...typography.body,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-});
+const styles = StyleSheet.create({});

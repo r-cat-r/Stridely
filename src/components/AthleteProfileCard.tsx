@@ -1,17 +1,51 @@
 /**
- * Athlete-style profile card — premium design
+ * Athlete-style profile card — premium dark design
  *
  * Used on Profile, UserDetail, and anywhere a full profile display is needed.
+ * Now supports sport-specific fields beyond just distance/pace.
  */
 
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import type { UserProfile } from '@/types';
+import type { UserProfile, SportsProfile } from '@/types';
+import { getSportConfig } from '@/constants/sportConfig';
 import { colors, spacing, borderRadius, shadows, typography } from '@/constants/theme';
 
 interface AthleteProfileCardProps {
   profile: UserProfile;
+}
+
+/** Build a display string for a sport profile's stats */
+function buildSportStats(s: SportsProfile): string[] {
+  const stats: string[] = [];
+  if (s.distance) stats.push(`${s.distance} km`);
+  if (s.pace) stats.push(s.pace);
+  if (s.playStyle) stats.push(s.playStyle);
+  if (s.position) stats.push(s.position);
+  if (s.role) stats.push(s.role);
+  if (s.gameStyle) stats.push(s.gameStyle);
+  if (s.climbingType) stats.push(s.climbingType);
+  if (s.grade) stats.push(s.grade);
+  if (s.difficulty) stats.push(s.difficulty);
+  if (s.distanceRange) stats.push(s.distanceRange);
+  stats.push(s.skillLevel);
+  stats.push(s.preferredTime);
+  return stats;
+}
+
+/** Get the icon for a sport stat */
+function getStatIcon(stat: string, sport: SportsProfile): string {
+  if (stat === sport.skillLevel) return 'medal-outline';
+  if (stat === sport.preferredTime) return 'clock-outline';
+  if (stat === sport.pace) return 'speedometer';
+  if (stat.includes('km') || stat === sport.distanceRange) return 'map-marker-distance';
+  if (stat === sport.position || stat === sport.role) return 'account-outline';
+  if (stat === sport.playStyle || stat === sport.gameStyle) return 'strategy';
+  if (stat === sport.climbingType) return 'carabiner';
+  if (stat === sport.grade) return 'chart-bar';
+  if (stat === sport.difficulty) return 'signal-cellular-3';
+  return 'information-outline';
 }
 
 export function AthleteProfileCard({ profile }: AthleteProfileCardProps): React.JSX.Element {
@@ -20,7 +54,7 @@ export function AthleteProfileCard({ profile }: AthleteProfileCardProps): React.
 
   return (
     <View style={styles.container}>
-      {/* Hero section with gradient-like background */}
+      {/* Hero section */}
       <View style={styles.heroBg}>
         <View style={styles.hero}>
           <View style={styles.avatarRing}>
@@ -44,35 +78,36 @@ export function AthleteProfileCard({ profile }: AthleteProfileCardProps): React.
       </View>
 
       {/* Active sport section */}
-      {activeSport && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>ACTIVE SPORT</Text>
-          <View style={styles.sportCard}>
-            <View style={styles.sportHeader}>
-              <View style={styles.sportIconWrap}>
-                <MaterialCommunityIcons
-                  name={
-                    (activeSport.sport === 'Cycling'
-                      ? 'bike'
-                      : activeSport.sport === 'Swimming'
-                        ? 'swim'
-                        : 'run') as 'run'
-                  }
-                  size={22}
-                  color={colors.textOnPrimary}
-                />
+      {activeSport && (() => {
+        const config = getSportConfig(activeSport.sport);
+        const stats = buildSportStats(activeSport);
+        return (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>ACTIVE SPORT</Text>
+            <View style={styles.sportCard}>
+              <View style={styles.sportHeader}>
+                <View style={styles.sportIconWrap}>
+                  <MaterialCommunityIcons
+                    name={(config?.icon || 'run') as any}
+                    size={22}
+                    color={colors.textOnPrimary}
+                  />
+                </View>
+                <Text style={styles.sportName}>{activeSport.sport}</Text>
               </View>
-              <Text style={styles.sportName}>{activeSport.sport}</Text>
-            </View>
-            <View style={styles.stats}>
-              <StatPill icon="map-marker-distance" label={`${activeSport.distance} km`} />
-              <StatPill icon="speedometer" label={activeSport.pace} />
-              <StatPill icon="medal-outline" label={activeSport.skillLevel} />
-              <StatPill icon="clock-outline" label={activeSport.preferredTime} />
+              <View style={styles.stats}>
+                {stats.map((stat) => (
+                  <StatPill
+                    key={stat}
+                    icon={getStatIcon(stat, activeSport)}
+                    label={stat}
+                  />
+                ))}
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        );
+      })()}
 
       {/* Other sports */}
       {allSports.length > 1 && (
@@ -80,29 +115,27 @@ export function AthleteProfileCard({ profile }: AthleteProfileCardProps): React.
           <Text style={styles.sectionLabel}>OTHER SPORTS</Text>
           {allSports
             .filter((s) => s.id !== profile.activeSportId)
-            .map((s) => (
-              <View key={s.id} style={styles.sportRow}>
-                <View style={styles.sportRowLeft}>
-                  <MaterialCommunityIcons
-                    name={
-                      s.sport === 'Cycling'
-                        ? 'bike'
-                        : s.sport === 'Swimming'
-                          ? 'swim'
-                          : 'run'
-                    }
-                    size={16}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.sportRowText}>
-                    {s.sport} • {s.distance}km • {s.pace}
-                  </Text>
+            .map((s) => {
+              const config = getSportConfig(s.sport);
+              const summary = buildSportStats(s).join(' • ');
+              return (
+                <View key={s.id} style={styles.sportRow}>
+                  <View style={styles.sportRowLeft}>
+                    <MaterialCommunityIcons
+                      name={(config?.icon || 'help-circle') as any}
+                      size={16}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.sportRowText} numberOfLines={1}>
+                      {s.sport}
+                    </Text>
+                  </View>
+                  <View style={styles.skillBadge}>
+                    <Text style={styles.skillBadgeText}>{s.skillLevel}</Text>
+                  </View>
                 </View>
-                <View style={styles.skillBadge}>
-                  <Text style={styles.skillBadgeText}>{s.skillLevel}</Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
         </View>
       )}
 
@@ -116,8 +149,8 @@ export function AthleteProfileCard({ profile }: AthleteProfileCardProps): React.
         </View>
         {profile.coordinates && (
           <View style={styles.metaItem}>
-            <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.accent} />
-            <Text style={[styles.metaText, { color: colors.accent }]}>
+            <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.primary} />
+            <Text style={[styles.metaText, { color: colors.primary }]}>
               Location active
             </Text>
           </View>
@@ -151,7 +184,7 @@ const styles = StyleSheet.create({
     ...shadows.md,
   },
   heroBg: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceElevated,
     paddingBottom: spacing.xl,
   },
   hero: {
@@ -163,7 +196,7 @@ const styles = StyleSheet.create({
     padding: 3,
     borderRadius: 58,
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: colors.primary + '60',
     marginBottom: spacing.md,
   },
   avatar: {
@@ -172,24 +205,24 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   avatarPlaceholder: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 40,
-    color: colors.textOnPrimary,
+    color: colors.primary,
     fontWeight: '800',
   },
   name: {
     ...typography.h1,
-    color: colors.textOnPrimary,
+    color: colors.text,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   bio: {
     ...typography.body,
-    color: 'rgba(255,255,255,0.85)',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -206,6 +239,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: borderRadius.md,
     padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   sportHeader: {
     flexDirection: 'row',
@@ -234,11 +269,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceLight,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.full,
-    ...shadows.sm,
   },
   statPillText: {
     ...typography.caption,
@@ -251,7 +285,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.border,
   },
   sportRowLeft: {
     flexDirection: 'row',
@@ -263,14 +297,14 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   skillBadge: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.primaryMuted,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
   },
   skillBadgeText: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: colors.primary,
     textTransform: 'capitalize',
   },
   meta: {

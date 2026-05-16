@@ -1,57 +1,62 @@
 /**
- * Design tokens — Stridely premium sports theme
+ * Design tokens — Stridely premium dark sports theme
  *
- * Inspired by Strava orange + modern dark neutrals.
- * Provides gradients, shadows, and typography for a production-grade feel.
+ * Palette:
+ *   #0E3756 — deep navy (primary backgrounds, elevated surfaces)
+ *   #192126 — dark charcoal (base background)
+ *   #BBF246 — neon lime (primary accent, CTAs, active states)
+ *   #FFFFFF — white (text, icons)
  */
 
 export const colors = {
-  // Brand
-  primary: '#FC4C02',
-  primaryLight: '#FF7A3D',
-  primaryDark: '#D93D00',
-  primaryGradientStart: '#FF6B35',
-  primaryGradientEnd: '#FC4C02',
+  // Brand / Accent
+  primary: '#BBF246',
+  primaryLight: '#D0F77A',
+  primaryDark: '#9AD030',
+  primaryGradientStart: '#D0F77A',
+  primaryGradientEnd: '#BBF246',
+  primaryMuted: 'rgba(187, 242, 70, 0.15)',
 
-  // Accent
-  secondary: '#0EA5E9',
-  secondaryLight: '#38BDF8',
-  accent: '#22C55E',
-  accentLight: '#4ADE80',
+  // Secondary
+  secondary: '#0E3756',
+  secondaryLight: '#154A6F',
+  accent: '#BBF246',
+  accentLight: '#D0F77A',
 
-  // Warm neutrals
-  neutral: '#F8FAFC',
-  surface: '#FFFFFF',
-  surfaceElevated: '#FFFFFF',
-  background: '#F1F5F9',
+  // Backgrounds (dark)
+  background: '#192126',
+  backgroundElevated: '#0E3756',
+  surface: '#1E2A30',
+  surfaceElevated: '#0E3756',
+  surfaceLight: '#243238',
 
   // Text hierarchy
-  text: '#0F172A',
-  textSecondary: '#475569',
-  textMuted: '#94A3B8',
-  textOnPrimary: '#FFFFFF',
+  text: '#FFFFFF',
+  textSecondary: '#C8D6DC',
+  textMuted: '#6B8A99',
+  textOnPrimary: '#192126',
 
-  // Borders & shadows
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
-  divider: '#E2E8F0',
+  // Borders & surfaces
+  border: '#2A3E48',
+  borderLight: '#1E2A30',
+  divider: '#2A3E48',
 
   // Semantic
-  error: '#EF4444',
-  errorLight: '#FEE2E2',
-  success: '#22C55E',
-  successLight: '#DCFCE7',
-  warning: '#F59E0B',
-  warningLight: '#FEF3C7',
+  error: '#FF6B6B',
+  errorLight: 'rgba(255, 107, 107, 0.15)',
+  success: '#BBF246',
+  successLight: 'rgba(187, 242, 70, 0.15)',
+  warning: '#FFD93D',
+  warningLight: 'rgba(255, 217, 61, 0.15)',
 
   // Shadows & overlays
-  shadow: 'rgba(15, 23, 42, 0.06)',
-  shadowMedium: 'rgba(15, 23, 42, 0.10)',
-  shadowDark: 'rgba(15, 23, 42, 0.16)',
-  overlay: 'rgba(15, 23, 42, 0.5)',
-  overlayLight: 'rgba(15, 23, 42, 0.3)',
+  shadow: 'rgba(0, 0, 0, 0.3)',
+  shadowMedium: 'rgba(0, 0, 0, 0.4)',
+  shadowDark: 'rgba(0, 0, 0, 0.6)',
+  overlay: 'rgba(0, 0, 0, 0.6)',
+  overlayLight: 'rgba(0, 0, 0, 0.4)',
 
-  // Card gradients (for LinearGradient usage)
+  // Card gradients
   cardGradientStart: 'rgba(0, 0, 0, 0)',
   cardGradientEnd: 'rgba(0, 0, 0, 0.6)',
 } as const;
@@ -102,24 +107,31 @@ export const typography = {
 
 export const shadows = {
   sm: {
-    shadowColor: colors.shadow,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 2,
   },
   md: {
-    shadowColor: colors.shadowMedium,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 4,
   },
   lg: {
-    shadowColor: colors.shadowDark,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.5,
     shadowRadius: 16,
     elevation: 8,
+  },
+  glow: {
+    shadowColor: '#BBF246',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
   },
 } as const;

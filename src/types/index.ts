@@ -7,8 +7,30 @@
 export interface SportsProfile {
   id: string;
   sport: string;
-  distance: number;
-  pace: string;
+
+  // Endurance sports (running, swimming, cycling)
+  distance?: number;
+  pace?: string;
+
+  // Racquet sports (tennis, table tennis, badminton, pickleball)
+  playStyle?: string;
+
+  // Team sports (basketball, football)
+  position?: string;
+  gameStyle?: string;
+
+  // Cricket
+  role?: string;
+
+  // Rock climbing
+  climbingType?: string;
+  grade?: string;
+
+  // Hiking
+  difficulty?: string;
+  distanceRange?: string;
+
+  // Common to all
   skillLevel: string;
   preferredTime: string;
 }
@@ -24,8 +46,11 @@ export interface UserProfile {
   activeSportId: string | null;
   searchRadiusKm: 3 | 5 | 10 | 20;
   coordinates: GeoCoordinates | null;
+  lastActive: number;
   createdAt: number;
   updatedAt: number;
+  /** Whether onboarding sport selection is complete */
+  onboardingComplete?: boolean;
 }
 
 export interface GeoCoordinates {
@@ -89,15 +114,20 @@ export interface Conversation {
   type: ConversationType;
   participantIds: string[];
   eventId?: string;
+  lastMessage?: string;
   createdAt: number;
   updatedAt: number;
 }
+
+export type MessageStatus = 'sent' | 'delivered' | 'read';
 
 export interface Message {
   id: string;
   conversationId: string;
   senderId: string;
   text: string;
+  status: MessageStatus;
+  readBy: string[];
   timestamp: number;
 }
 

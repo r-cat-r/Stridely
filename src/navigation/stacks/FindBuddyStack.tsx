@@ -1,15 +1,16 @@
 /**
- * Find Buddy stack
+ * Find Buddy stack — discovery, profile, invites, friends
  */
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Button } from 'react-native-paper';
-import { View } from 'react-native';
+import { TouchableOpacity, View, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FindBuddyScreen } from '@/screens/matching/FindBuddyScreen';
 import { UserDetailScreen } from '@/screens/matching/UserDetailScreen';
 import { InvitesScreen } from '@/screens/matching/InvitesScreen';
 import { FriendsScreen } from '@/screens/matching/FriendsScreen';
+import { colors, spacing, typography } from '@/constants/theme';
 
 export type FindBuddyStackParamList = {
   FindBuddyList: undefined;
@@ -22,27 +23,43 @@ const Stack = createNativeStackNavigator<FindBuddyStackParamList>();
 
 export function FindBuddyStack(): React.JSX.Element {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: true }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerStyle: { backgroundColor: colors.surface },
+        headerTitleStyle: { ...typography.h3, color: colors.text },
+        headerTintColor: colors.primary,
+      }}
+    >
       <Stack.Screen
         name="FindBuddyList"
         component={FindBuddyScreen}
         options={({ navigation }) => ({
-          title: 'Find Buddy',
+          title: 'Discover',
           headerRight: () => (
-            <View style={{ flexDirection: 'row' }}>
-              <Button
+            <View style={styles.headerActions}>
+              <TouchableOpacity
                 onPress={() => navigation.navigate('Friends')}
-                compact
-                icon="account-group"
+                style={styles.headerBtn}
+                activeOpacity={0.7}
               >
-                Friends
-              </Button>
-              <Button
+                <MaterialCommunityIcons
+                  name="account-group-outline"
+                  size={22}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
                 onPress={() => navigation.navigate('Invites')}
-                compact
+                style={styles.headerBtn}
+                activeOpacity={0.7}
               >
-                Invites
-              </Button>
+                <MaterialCommunityIcons
+                  name="email-outline"
+                  size={22}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
             </View>
           ),
         })}
@@ -65,3 +82,13 @@ export function FindBuddyStack(): React.JSX.Element {
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  headerBtn: {
+    padding: spacing.xs,
+  },
+});

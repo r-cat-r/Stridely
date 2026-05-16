@@ -80,6 +80,7 @@ export async function seedDemoData(
         latitude: jitterCoord(lat, 15),
         longitude: jitterCoord(lng, 15),
       },
+      lastActive: Date.now(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
