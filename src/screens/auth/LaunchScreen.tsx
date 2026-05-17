@@ -16,7 +16,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Launch'>;
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export function LaunchScreen({ navigation }: Props): React.JSX.Element {
+export function LaunchScreen({ navigation, route }: Props): React.JSX.Element {
   return (
     <View style={styles.container}>
       {/* Background Image */}
@@ -56,7 +56,14 @@ export function LaunchScreen({ navigation }: Props): React.JSX.Element {
           <TouchableOpacity
             style={styles.button}
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('Login')}
+            onPress={() => {
+              if (route.params?.onGetStarted) {
+                route.params.onGetStarted();
+              } else {
+                // Fallback for types or direct access
+                navigation.replace('Login');
+              }
+            }}
           >
             <Text style={styles.buttonText}>Get Started</Text>
           </TouchableOpacity>

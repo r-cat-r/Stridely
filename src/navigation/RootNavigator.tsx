@@ -7,7 +7,7 @@
  * - Authenticated + onboarding complete → Main tabs
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LaunchScreen } from '@/screens/auth/LaunchScreen';
 import { LoginScreen } from '@/screens/auth/LoginScreen';
@@ -20,7 +20,7 @@ import { PrivacyPolicyScreen } from '@/screens/auth/PrivacyPolicyScreen';
 import { MainTabs } from './MainTabs';
 
 export type RootStackParamList = {
-  Launch: undefined;
+  Launch: { onGetStarted?: () => void } | undefined;
   Login: undefined;
   SignUp: undefined;
   PhoneAuth: { mode: 'login' | 'signup' };
@@ -39,6 +39,20 @@ interface RootNavigatorProps {
 }
 
 export function RootNavigator({ isAuthenticated, needsOnboarding }: RootNavigatorProps): React.JSX.Element {
+  const [hasSeenLaunch, setHasSeenLaunch] = useState(false);
+
+  if (!hasSeenLaunch) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen
+          name="Launch"
+          component={LaunchScreen}
+          initialParams={{ onGetStarted: () => setHasSeenLaunch(true) }}
+        />
+      </Stack.Navigator>
+    );
+  }
+
   const navKey = isAuthenticated
     ? needsOnboarding ? 'onboarding' : 'main'
     : 'auth';
@@ -50,7 +64,7 @@ export function RootNavigator({ isAuthenticated, needsOnboarding }: RootNavigato
       initialRouteName={
         isAuthenticated
           ? needsOnboarding ? 'SportSelection' : 'Main'
-          : 'Launch'
+          : 'Login'
       }
     >
       {isAuthenticated ? (
@@ -69,7 +83,6 @@ export function RootNavigator({ isAuthenticated, needsOnboarding }: RootNavigato
         )
       ) : (
         <>
-          <Stack.Screen name="Launch" component={LaunchScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="SignUp" component={SignUpScreen} />
           <Stack.Screen name="PhoneAuth" component={PhoneAuthScreen} />
